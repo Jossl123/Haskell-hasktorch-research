@@ -1,0 +1,33 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.36.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           haskell-hasktorch-research
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/Jossl123/Haskell-hasktorch-research>
+homepage:       https://github.com/Jossl123/Haskell-hasktorch-research#readme
+bug-reports:    https://github.com/Jossl123/Haskell-hasktorch-research/issues
+author:         Josselin Gautier
+maintainer:     Josselin Gautier
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/Jossl123/Haskell-hasktorch-research
+
+library
+  exposed-modules:
+      Main
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , hasktorch
+    , matplotlib
+  default-language: Haskell2010
