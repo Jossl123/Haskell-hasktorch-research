@@ -59,5 +59,5 @@ extra-lib-dirs:
 stack build
 
 echo ""
-echo "Testing Main.hs"
-stack runghc src/Main.hs
+echo "Testing sinus.hs"
+stack runghc src/sinus.hs
