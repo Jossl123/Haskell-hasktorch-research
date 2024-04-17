@@ -19,7 +19,7 @@ description:  Please see the README on GitHub at <https://github.com/Jossl123/Ha
 dependencies:
 - base >= 4.7 && < 5
 - hasktorch
-- matplotlib
+- hasktorch-tools
 
 library:
   source-dirs: src

@@ -20,8 +20,6 @@ source-repository head
   location: https://github.com/Jossl123/Haskell-hasktorch-research
 
 library
-  exposed-modules:
-      Main
   other-modules:
       Paths_haskell_hasktorch_research
   hs-source-dirs:
@@ -29,5 +27,5 @@ library
   build-depends:
       base >=4.7 && <5
     , hasktorch
-    , matplotlib
+    , hasktorch-tools
   default-language: Haskell2010

@@ -86,6 +86,17 @@ packages:
     commit: 32d7abec6a21c42a5f960d7f4133d604e8be79ec
     git: https://github.com/hasktorch/type-errors-pretty
 - completed:
+    commit: 0b6912850dbffd14ed16c3fa26a0773c877ba093
+    git: http://github.com/DaisukeBekki/nlp-tools.git
+    name: nlp-tools
+    pantry-tree:
+      sha256: c04b1d8be835a5b33e762fca3abbe6348dc3ac2a79e701a886b6a23f432c4731
+      size: 1727
+    version: 0.1.9
+  original:
+    commit: 0b6912850dbffd14ed16c3fa26a0773c877ba093
+    git: http://github.com/DaisukeBekki/nlp-tools.git
+- completed:
     hackage: union-find-array-0.1.0.3@sha256:242e066ec516d61f262947e5794edc7bbc11fd538a0415c03ac0c01b028cfa8a,1372
     pantry-tree:
       sha256: 1c53fba1445e9dde2d72979a049438213c0c500e40189c76818314600fb9d875

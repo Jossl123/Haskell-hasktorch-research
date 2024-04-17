@@ -42,6 +42,8 @@ extra-deps:
   commit: 4176e10d4de2d1310506c0fcf6a74956d81d59b6
 - git: https://github.com/hasktorch/type-errors-pretty
   commit: 32d7abec6a21c42a5f960d7f4133d604e8be79ec
+- git: http://github.com/DaisukeBekki/nlp-tools.git
+  commit: 0b6912850dbffd14ed16c3fa26a0773c877ba093
 - union-find-array-0.1.0.3@sha256:242e066ec516d61f262947e5794edc7bbc11fd538a0415c03ac0c01b028cfa8a,1372
 - clay-0.14.0@sha256:382eced24317f9ed0f7a0a4789cdfc6fc8dd32895cdb0c4ea50a1613bee08af3,2128
 - inline-c-0.9.1.10

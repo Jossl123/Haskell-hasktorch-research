@@ -9,7 +9,6 @@ import Control.Monad (when)
 import Data.List (foldl', intersperse, scanl')
 import GHC.Generics
 import Torch
-import Graphics.Matplotlib
 --------------------------------------------------------------------------------
 -- MLP
 --------------------------------------------------------------------------------
@@ -68,7 +67,6 @@ main = do
   putStrLn "Final Model:"
   putStrLn $ "0 => " ++ (show $ squeezeAll $ mlp trained (asTensor [0 :: Float]))
   putStrLn $ "3.14=> " ++ (show $ squeezeAll $ mlp trained (asTensor [1.55 :: Float]))
-  -- onscreen $ projectionsF (\a b -> asValue (model trained (asTensor [a :: Double])) :: Double) (-100) 100 (-200) 200 10
   where
     optimizer = GD
     tensorXOR :: Tensor -> Tensor
