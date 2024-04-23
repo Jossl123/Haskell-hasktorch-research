@@ -20,6 +20,17 @@ dependencies:
 - base >= 4.7 && < 5
 - hasktorch
 - hasktorch-tools
+- random-shuffle
+- nlp-tools
+- directory
+- random
+- csv
 
 library:
   source-dirs: src
+
+executables:
+  haskell-hasktorch-research:
+    main: xor.hs
+    source-dirs:
+      - src

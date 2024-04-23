@@ -26,6 +26,28 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , csv
+    , directory
     , hasktorch
     , hasktorch-tools
+    , nlp-tools
+    , random
+    , random-shuffle
+  default-language: Haskell2010
+
+executable haskell-hasktorch-research
+  main-is: weather.hs
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , csv
+    , directory
+    , hasktorch
+    , hasktorch-tools
+    , nlp-tools
+    , random
+    , random-shuffle
   default-language: Haskell2010
