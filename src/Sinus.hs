@@ -3,7 +3,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Main where
+module Sinus where
 
 import Control.Monad (when)
 import Data.List (foldl', intersperse, scanl')
@@ -48,8 +48,8 @@ batchSize = 100
 
 numIters = 300
 
-main :: IO ()
-main = do
+sinus :: IO ()
+sinus = do
   init <-
     sample $
       MLPSpec

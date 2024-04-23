@@ -1,4 +1,4 @@
-module Main where
+module Weather (weather) where
 
 import Text.CSV
 import System.Random (newStdGen)
@@ -9,7 +9,7 @@ import System.Directory (getCurrentDirectory)
 import Torch.Functional     (mseLoss)
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
 import Torch.NN             (sample)
-import Torch.Optim          (GD(..), mkAdam, runStep, foldLoop)
+import Torch.Optim          (GD(..), runStep, foldLoop)
 
 import Torch.Train          (update, saveParams, loadParams)
 import Torch.Device         (Device(..),DeviceType(..))
@@ -31,7 +31,8 @@ createModel :: Device -> LinearHypParams
 createModel device = LinearHypParams device True 11 1
 
 forward :: LinearParams -> [Float] -> Tensor
-forward model input = linearLayer model $ asTensor input
+forward model input = linearLayer model $ asTensor input'
+    where input' = zipWith (\x i -> x ^ i) input [1..] -- non linearity
 
 loss :: LinearParams -> ([Float], Float) -> Tensor
 loss model (input, output) = let y = forward model input 
@@ -72,20 +73,19 @@ train trainingDatas = do
         let epochLoss = sum (map (loss model) (take batchSize datas))
         let lossValue = asValue epochLoss :: Float
         putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue
-        (trainedModel, nOpt) <- runStep model opt epochLoss 2e-5
-        pure (trainedModel, nOpt, getNextBatch 300 datas, batchSize, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
+        (trainedModel, nOpt) <- runStep model opt epochLoss 1e-4
+        pure (trainedModel, nOpt, getNextBatch 100 datas, batchSize, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
     -- print trainedModel
     drawLearningCurve "models/graph-weather.png" "Learning Curve" [("", losses)]
 
     saveParams trainedModel "models/weather.model"
 
-    where epochNb = 400
-          optimizer = mkAdam epochNb 0.9 0.999 []
-          batchSize = 1100
+    where optimizer = GD
+          epochNb = 200
+          batchSize = 1000
 
-
-main :: IO()
-main = do
+weather :: IO()
+weather = do
     rng <- newStdGen
     currentDir <- getCurrentDirectory
     csvTrain <- parseCSVOrError "/data/weather/train.csv"
@@ -111,5 +111,5 @@ main = do
 
 
 -- convert tuple to list (not needed for the neural network, only for display purposes)
-tupleToList2 :: (a, a) -> [a]
-tupleToList2 (x, y) = [x, y]
+tupleToList2 :: (Float, Float) -> [Float]
+tupleToList2 (x, y) = [x*30.0, y*30.0]
