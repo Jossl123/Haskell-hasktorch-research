@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Xor
+import Titanic
 
 main :: IO ()
-main = xor
+main = titanic

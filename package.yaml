@@ -25,6 +25,8 @@ dependencies:
 - directory
 - random
 - csv
+- cassava
+- bytestring
 ghc-options:
 - -Wall
 - -Wcompat

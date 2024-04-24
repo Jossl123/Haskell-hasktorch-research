@@ -1,13 +1,11 @@
-module Xor where
+module Xor (xor) where
     
 import Control.Monad (forM_)        --base
 
-import System.Random (newStdGen)
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
 import Torch.Functional     (mseLoss)
-import System.Random.Shuffle (shuffle')
 import Torch.NN             (sample)
-import Torch.Optim          (GD(..), runStep, foldLoop)
+import Torch.Optim          (GD(..), foldLoop)
 import Torch.Device         (Device(..),DeviceType(..))
 import Torch.Train          (update, saveParams, loadParams)
 import Torch.Layer.MLP (MLPHypParams(..), MLPParams(..), ActName(..), mlpLayer)
@@ -26,7 +24,6 @@ xor = do
         hypParams = MLPHypParams device 2 [(3, Tanh),(3, Tanh), (1, Sigmoid)]
     initModel <- sample hypParams
     (trainedModel, _, losses) <- foldLoop (initModel, GD, []) epochNb $ \(model, opt, losses) i -> do 
-        rng <- newStdGen
         let epochLoss = sum (map (loss model) trainingData)
         let lossValue = asValue epochLoss :: Float
         putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
