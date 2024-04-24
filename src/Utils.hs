@@ -1,4 +1,4 @@
-module Utils where
+module Utils (parseCSVOrError) where
 
 import Text.CSV
 import System.Directory (getCurrentDirectory)

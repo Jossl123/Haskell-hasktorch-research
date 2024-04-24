@@ -24,7 +24,3 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
-hasktorch
-libtorch-ffi
-libtorch-ffi-helper
-deps

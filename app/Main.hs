@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Weather
+import Xor
 
 main :: IO ()
-main = weather
+main = xor

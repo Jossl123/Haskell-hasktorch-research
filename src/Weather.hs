@@ -16,16 +16,7 @@ import Torch.Device         (Device(..),DeviceType(..))
 import Torch.Layer.Linear   (LinearHypParams(..), LinearParams(..), linearLayer)
 import ML.Exp.Chart (drawLearningCurve) --nlp-tools
 
-
--- Function to parse CSV file or throw an error
-parseCSVOrError :: String -> IO CSV
-parseCSVOrError filePath = do
-    currentDir <- getCurrentDirectory
-    csv <- parseCSVFromFile (currentDir ++ "/" ++ filePath)
-    case csv of
-        Right csvData -> return csvData
-        Left err -> error $ "Error parsing CSV: " ++ show err
-
+import Utils
 
 createModel :: Device -> LinearHypParams
 createModel device = LinearHypParams device True 11 1
@@ -73,7 +64,7 @@ train trainingDatas = do
         let epochLoss = sum (map (loss model) (take batchSize datas))
         let lossValue = asValue epochLoss :: Float
         putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue
-        (trainedModel, nOpt) <- runStep model opt epochLoss 1e-4
+        (trainedModel, nOpt) <- runStep model opt epochLoss 2e-4
         pure (trainedModel, nOpt, getNextBatch 100 datas, batchSize, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
     -- print trainedModel
     drawLearningCurve "models/graph-weather.png" "Learning Curve" [("", losses)]
@@ -81,7 +72,7 @@ train trainingDatas = do
     saveParams trainedModel "models/weather.model"
 
     where optimizer = GD
-          epochNb = 200
+          epochNb = 400
           batchSize = 1000
 
 weather :: IO()
