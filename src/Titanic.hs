@@ -31,7 +31,7 @@ extractData csvData = [extract line | line <- csvData, length line == 12]
             where
                 pclass = readFiltered (line !! 2)/3.0
                 sex = readMaleFemale (line !! 4)
-                age = readFiltered (line !! 5) / 100.0
+                age = readFiltered (line !! 5) / 10.0
                 sibSp = readFiltered (line !! 6)
                 parch = readFiltered (line !! 7)
                 fare = readFiltered (line !! 9) / 100.0
@@ -52,43 +52,43 @@ filterCSVValid (_:csvData) = map fst $ extractData [take 1 line ++ ["0.0"] ++ dr
 titanic :: IO ()
 titanic = do
     let device = Device CPU 0
-        epochNb = 200
-        hypParams = MLPHypParams device 7 [(10, Id),(40, Relu), (1, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
-    -- csvTrain <- parseCSVOrError "/data/titanic/train.csv"
-    -- let trainingData = filterCSV csvTrain
-    -- -- -- forM_ trainingData $ \(input,_) -> do
-    -- -- --     putStrLn $ show $ input
-    -- initModel <- sample hypParams
-    -- (trainedModel, _, losses) <- foldLoop (initModel, GD, []) epochNb $ \(model, opt, losses) i -> do 
-    --     let epochLoss = sum (map (loss model) trainingData)
-    --     let lossValue = asValue epochLoss :: Float
-    --     putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
-    --     (trainedModel, nOpt) <- update model opt epochLoss 0.00007
-    --     pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
-    -- drawLearningCurve "models/graph-titanic.png" "Learning Curve" [("", losses)]
-    -- saveParams trainedModel "models/titanic.model"
+        epochNb = 1000
+        hypParams = MLPHypParams device 7 [(30, Relu),(4, Relu), (1, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
+    csvTrain <- parseCSVOrError "/data/titanic/train.csv"
+    let trainingData = filterCSV csvTrain
+    -- -- forM_ trainingData $ \(input,_) -> do
+    -- --     putStrLn $ show $ input
+    initModel <- sample hypParams
+    -- initModel <- loadParams hypParams "models/titanic_7input_83-38%.model"
+    (trainedModel, _, losses) <- foldLoop (initModel, GD, []) epochNb $ \(model, opt, losses) i -> do 
+        let epochLoss = sum (map (loss model) trainingData)
+        let lossValue = asValue epochLoss :: Float
+        putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
+        (trainedModel, nOpt) <- update model opt epochLoss 0.00001
+        pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
+    drawLearningCurve "models/graph-titanic.png" "Learning Curve" [("", losses)]
+    saveParams trainedModel "models/titanic.model"
 
 
     model <- loadParams hypParams "models/titanic.model"
-    -- -- forM_ trainingData $ \(input,output) -> do
-    -- --     putStr $ show $ output
-    -- --     putStr ": "
-    -- --     putStrLn $ show ((mlpLayer model input))
+    -- -- -- forM_ trainingData $ \(input,output) -> do
+    -- -- --     putStr $ show $ output
+    -- -- --     putStr ": "
+    -- -- --     putStrLn $ show ((mlpLayer model input))
 
-    -- let expected = map snd trainingData
-    -- let calculated = [ if (asValue value :: Float) <= 0.5 then 0 else 1 | value <- map (mlpLayer model . fst) trainingData]
-    -- let passengersId = [read (line !! 0) :: Int | line <- csvValid]
-    -- let differences = map (\(x, y) -> 1-(abs (x - y))) (zip expected calculated)
-    -- putStrLn $ "Res : " ++ show ((sum differences) / fromIntegral (length differences)) ++ "%"
+    let expected = map snd trainingData
+    let calculated = [ if (asValue value :: Float) <= 0.5 then 0 else 1 | value <- map (mlpLayer model . fst) trainingData]
+    let differences = map (\(x, y) -> 1-(abs (x - y))) (zip expected calculated)
+    putStrLn $ "Res : " ++ show ((sum differences) / fromIntegral (length differences)) ++ "%"
 
-    csvValid <- parseCSVOrError "/data/titanic/test.csv"
-    let validationData = filterCSVValid csvValid
-    let calculated = [ if (asValue value :: Float) <= 0.5 then 0 else 1 | value <- map (mlpLayer model) validationData]
-    let passengersId = [read (line !! 0) :: Int | line <- drop 1 csvValid, length line == 11]
-    let output = zip passengersId calculated
+    -- csvValid <- parseCSVOrError "/data/titanic/test.csv"
+    -- let validationData = filterCSVValid csvValid
+    -- let calculated = [ if (asValue value :: Float) <= 0.5 then 0 else 1 | value <- map (mlpLayer model) validationData]
+    -- let passengersId = [read (line !! 0) :: Int | line <- drop 1 csvValid, length line == 11]
+    -- let output = zip passengersId calculated
 
-    let csvOutput = map (\(passengerId, prediction) -> [show passengerId, show prediction]) output
-    BL.writeFile "output.csv" $ encode csvOutput
+    -- let csvOutput = map (\(passengerId, prediction) -> [show passengerId, show prediction]) output
+    -- BL.writeFile "output3.csv" $ encode csvOutput
 
 
 
@@ -97,4 +97,5 @@ titanic = do
     --     putStr ": "
     --     putStrLn $ show ((mlpLayer trainedModel input))
     return ()
+    
     
