@@ -22,8 +22,8 @@ trainingData = take 12 $ cycle [([0,0],0),([1,0],1),([0,1],1),([1,1],0)]
 xor :: IO ()
 xor = do
     let device = Device CPU 0
-        epochNb = 4000
-        hypParams = MLPHypParams device 2 [(3, Tanh), (1, Sigmoid)]
+        epochNb = 2000
+        hypParams = MLPHypParams device 2 [(3, Tanh),(3, Tanh), (1, Sigmoid)]
     initModel <- sample hypParams
     (trainedModel, _, losses) <- foldLoop (initModel, GD, []) epochNb $ \(model, opt, losses) i -> do 
         rng <- newStdGen
