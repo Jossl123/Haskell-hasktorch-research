@@ -27,6 +27,9 @@ dependencies:
 - csv
 - cassava
 - bytestring
+- hip
+- JuicyPixels
+- matrix
 ghc-options:
 - -Wall
 - -Wcompat

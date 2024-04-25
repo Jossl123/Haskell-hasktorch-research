@@ -21,7 +21,9 @@ source-repository head
 
 library
   exposed-modules:
+      Cifar
       MyLinear
+      ReadImage
       Sinus
       Titanic
       Utils
@@ -34,13 +36,16 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , base >=4.7 && <5
     , bytestring
     , cassava
     , csv
     , directory
     , hasktorch
     , hasktorch-tools
+    , hip
+    , matrix
     , nlp-tools
     , random
     , random-shuffle
@@ -54,7 +59,8 @@ executable haskell-hasktorch-research
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , base >=4.7 && <5
     , bytestring
     , cassava
     , csv
@@ -62,6 +68,8 @@ executable haskell-hasktorch-research
     , haskell-hasktorch-research
     , hasktorch
     , hasktorch-tools
+    , hip
+    , matrix
     , nlp-tools
     , random
     , random-shuffle

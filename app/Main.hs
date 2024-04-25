@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Titanic
+import Cifar
 
 main :: IO ()
-main = titanic
+main = cifar
