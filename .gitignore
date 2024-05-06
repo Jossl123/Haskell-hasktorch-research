@@ -25,3 +25,5 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 data/cifar10
+data/test
+outputs
