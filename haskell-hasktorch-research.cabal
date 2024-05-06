@@ -22,7 +22,7 @@ source-repository head
 library
   exposed-modules:
       Cifar
-      Cifar_grayscale
+      CifarGrayScale
       MyLinear
       ReadImage
       Sinus

@@ -1,7 +1,7 @@
 -- PLEASE DOWNLOAD THE REQUIRED DATAS IF YOU WANT TO RUN THIS PROGRAM 
 -- https://www.kaggle.com/datasets/swaroopkml/cifar10-pngs-in-folders?resource=download
 
-module Cifar (cifar) where
+module CifarGrayScale (cifar) where
 
 import Torch.Optim          (foldLoop)
 import ReadImage (imageToRGBList)
@@ -11,12 +11,16 @@ import Data.List (sortBy, maximumBy)
 
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
 import Torch.Functional     (mseLoss, Dim(..), exp, sumAll, div)
-import Torch.NN             (sample,flattenParameters)
-import Torch.Optim          (GD(..), Adam(..), mkAdam, runStep, foldLoop)
+import Torch.NN             (sample)
+import Torch.Optim          (GD(..), runStep, foldLoop)
 import Torch.Device         (Device(..),DeviceType(..))
 import Torch.Train          (update, saveParams, loadParams)
 import Torch.Layer.MLP (MLPHypParams(..), MLPParams(..), ActName(..), mlpLayer)
 import ML.Exp.Chart (drawLearningCurve) --nlp-tools
+
+toGrayScaleList :: [Float] -> [Float]
+toGrayScaleList [] = []
+toGrayScaleList l = [(l !! 0 )* 0.2126 + (l !! 1) *  0.7152 + (l !! 2) * 0.7152] ++ (toGrayScaleList $ drop 3 l)
 
 getObjectData :: String -> Int -> Int -> IO [(Tensor, Tensor)]
 getObjectData folderName output maxNb = do
@@ -31,7 +35,7 @@ getObjectData folderName output maxNb = do
             Right rgbData -> do 
                 let outputData = (take output (repeat 0 :: [Float])) ++ [1.0] ++ (take (maxNb - output - 1) (repeat 0 :: [Float]))
                 let tensorOutput = asTensor outputData
-                pure (currentDatas ++ [(asTensor rgbData, tensorOutput)])
+                pure (currentDatas ++ [(asTensor (toGrayScaleList rgbData), tensorOutput)])
     return datas
 
 getData :: String -> IO [(Tensor, Tensor)]
@@ -65,27 +69,25 @@ softmax input =
 cifar :: IO ()
 cifar = do
     let device = Device CPU 0
-        epochNb = 10000 
-        hypParams = MLPHypParams device 3072 [(256, Relu),(256, Relu),(10, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
+        epochNb = 10000
+        hypParams = MLPHypParams device 1024 [(64, Relu), (32, Relu), (10, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
 
     trainingData <- getData "train/"
     validationData <- getData "test/"
-    initModel <- sample hypParams
-    -- initModel <- loadParams hypParams "models/trainingCifar/cifar_200_17%_895loss.model"
-    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
-    
-    (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
+    -- initModel <- sample hypParams
+    initModel <- loadParams hypParams "models/trainingCifarGrayScale/cifar_750_30%_813loss.model"
+    (trainedModel, _, losses) <- foldLoop (initModel, GD, []) epochNb $ \(model, opt, losses) i -> do 
         let epochLoss = sum (map (loss model) trainingData)
         let lossValue = asValue epochLoss :: Float
         putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
-        (trainedModel, nOpt) <- runStep model opt epochLoss 0.001
+        (trainedModel, nOpt) <- runStep model opt epochLoss 0.0001
         when (i `mod` 50 == 0) $ do
             putStrLn "Saving..."
             let results = map (\(input, output) -> if (indexOfMax $ (asValue (forward model input) :: [Float])) == (indexOfMax $ (asValue output :: [Float])) then 1 else 0) validationData
             let grade = ((sum results) / (fromIntegral (length results))) * 100.0
-            saveParams trainedModel ("models/trainingCifar/cifar_" ++ show (i + 0) ++ "_" ++ show (round grade) ++ "%_" ++ show (round lossValue) ++ "loss.model" )
+            saveParams trainedModel ("models/trainingCifarGrayScale/cifar_" ++ show (i + 750) ++ "_" ++ show (round grade) ++ "%_" ++ show (round lossValue) ++ "loss.model" )
             drawLearningCurve "models/graph-cifar.png" "Learning Curve" [("", losses)]
-            putStrLn "Saved..."
+            putStrLn "Saved!"
         pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
     drawLearningCurve "models/graph-cifar.png" "Learning Curve" [("", losses)]
     saveParams trainedModel "models/cifar.model"
