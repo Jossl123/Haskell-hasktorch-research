@@ -1,6 +1,6 @@
 ## Weather 
 
-7 pasts days, variance, temperature difference between last 2 days, slopeTrend, mean
+inputs : 7 pasts days temperatures, variance, temperature difference between last 2 days, slopeTrend, mean
 
 
 ## Titanic 

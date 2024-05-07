@@ -27,3 +27,4 @@ cabal.project.local~
 data/cifar10
 data/test
 outputs
+ideas.md
