@@ -3,7 +3,7 @@
 
 module Main where
 
-import Functional           (softmax, precision, indexOfMax)
+import Functional           (softmax, accuracy, indexOfMax, precision, f1, recall, macroAvg, weightedAvg)
 
 import Torch.Optim          (foldLoop)
 import ReadImage            (imageToRGBList)
@@ -89,7 +89,11 @@ main = do
 
     model <- loadParams hypParams "app/cifar/models/trainingCifar/cifar_700_51%_2881loss.model"
     
-    putStrLn $ show $ accuracy model forward validationData
+    putStrLn $ show $ precision model forward validationData
+    putStrLn $ show $ recall model forward validationData
+    putStrLn $ show $ f1 model forward validationData
+    putStrLn $ show $ macroAvg model forward validationData
+    putStrLn $ show $ weightedAvg model forward validationData
 
     -- let results = map (\(input, output) -> if (indexOfMax $ (asValue (forward model input) :: [Float])) == (indexOfMax $ (asValue output :: [Float])) then 1 else 0) trainingData
     -- let grade = ((sum results) / (fromIntegral (length results))) * 100.0
