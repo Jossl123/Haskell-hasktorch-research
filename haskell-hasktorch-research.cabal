@@ -21,16 +21,9 @@ source-repository head
 
 library
   exposed-modules:
-      Cifar
-      CifarGrayScale
-      MyLinear
+      Functional
       ReadImage
-      Sinus
-      Titanic
       Utils
-      Weather
-      WeatherInProgress
-      Xor
   other-modules:
       Paths_haskell_hasktorch_research
   hs-source-dirs:
@@ -52,12 +45,111 @@ library
     , random-shuffle
   default-language: Haskell2010
 
-executable haskell-hasktorch-research
+executable cifar
+  main-is: Main.hs
+  other-modules:
+      MainGrayScale
+      Submit
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/cifar
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , csv
+    , directory
+    , haskell-hasktorch-research
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+  default-language: Haskell2010
+
+executable linear
   main-is: Main.hs
   other-modules:
       Paths_haskell_hasktorch_research
   hs-source-dirs:
-      app
+      app/linear
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , csv
+    , directory
+    , haskell-hasktorch-research
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+  default-language: Haskell2010
+
+executable titanic
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/titanic
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , csv
+    , directory
+    , haskell-hasktorch-research
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+  default-language: Haskell2010
+
+executable weather
+  main-is: Main.hs
+  other-modules:
+      WeatherInProgress
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/weather
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , csv
+    , directory
+    , haskell-hasktorch-research
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+  default-language: Haskell2010
+
+executable xor
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/xor
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels

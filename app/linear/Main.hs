@@ -1,4 +1,4 @@
-module MyLinear where
+module Main where
 
 import Torch.Functional     (mseLoss)
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
@@ -25,8 +25,8 @@ loss :: LinearParams -> ([Float], Float) -> Tensor
 loss model (input, output) = let y = forward model input 
                              in mseLoss y (asTensor output)
 
-linear :: IO()
-linear = do
+main :: IO()
+main = do
     -- sample initiate a network with random value with the size of our model
     initialModel <- sample $ createModel device
 

@@ -1,4 +1,4 @@
-module Xor (xor) where
+module Main where
     
 import Control.Monad (forM_)        --base
 
@@ -17,8 +17,8 @@ loss model (input, output) = let y = mlpLayer model $ asTensor input
 trainingData :: [([Float], Float)]
 trainingData = take 12 $ cycle [([0,0],0),([1,0],1),([0,1],1),([1,1],0)]
 
-xor :: IO ()
-xor = do
+main :: IO ()
+main = do
     let device = Device CPU 0
         epochNb = 2000
         hypParams = MLPHypParams device 2 [(3, Tanh),(3, Tanh), (1, Sigmoid)]

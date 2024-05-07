@@ -1,7 +1,7 @@
 -- PLEASE DOWNLOAD THE REQUIRED DATAS IF YOU WANT TO RUN THIS PROGRAM 
 -- https://www.kaggle.com/datasets/swaroopkml/cifar10-pngs-in-folders?resource=download
 
-module CifarGrayScale (cifar) where
+module MainGrayScale where
 
 import Torch.Optim          (foldLoop)
 import ReadImage (imageToRGBList)

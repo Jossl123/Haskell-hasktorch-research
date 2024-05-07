@@ -1,4 +1,4 @@
-module Titanic (titanic) where
+module Main where
 
 import Text.CSV
 import Data.Csv
@@ -49,8 +49,8 @@ filterCSVValid [] = []
 filterCSVValid (_:csvData) = map fst $ extractData [take 1 line ++ ["0.0"] ++ drop 1 line  | line <- csvData]
 
 
-titanic :: IO ()
-titanic = do
+main :: IO ()
+main = do
     let device = Device CPU 0
         epochNb = 1000
         hypParams = MLPHypParams device 7 [(30, Relu),(4, Relu), (1, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu

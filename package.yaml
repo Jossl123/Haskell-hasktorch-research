@@ -46,12 +46,39 @@ library:
   source-dirs: src
 
 executables:
-  haskell-hasktorch-research:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - haskell-hasktorch-research
+  # haskell-hasktorch-research:
+  #   main:                Main.hs
+  #   source-dirs:         app
+  #   ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+  #   dependencies: haskell-hasktorch-research
+  cifar:
+    main: Main.hs
+    source-dirs: app/cifar
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research
+  titanic:
+    main: Main.hs
+    source-dirs: app/titanic
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research
+  xor:
+    main: Main.hs
+    source-dirs: app/xor
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research
+  linear:
+    main: Main.hs
+    source-dirs: app/linear
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research
+  weather:
+    main: Main.hs
+    source-dirs: app/weather
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research
+  xor:
+    main: Main.hs
+    source-dirs: app/xor
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research
+  

@@ -1,7 +1,7 @@
 -- PLEASE DOWNLOAD THE REQUIRED DATAS IF YOU WANT TO RUN THIS PROGRAM 
 -- https://www.kaggle.com/datasets/swaroopkml/cifar10-pngs-in-folders?resource=download
 
-module Cifar (cifar) where
+module Submit where
 
 import Text.CSV
 import Data.Csv
@@ -82,7 +82,7 @@ cifar = do
 
 
 
-    model <- loadParams hypParams "models/trainingCifar/cifar_150_41%_687loss.model"
+    model <- loadParams hypParams "models/trainingCifar/cifar_700_51%_2881loss.model"
     
     -- let results = map (\(input, output) -> if (indexOfMax $ (asValue (forward model input) :: [Float])) == (indexOfMax $ (asValue output :: [Float])) then 1 else 0) trainingData
     -- let grade = ((sum results) / (fromIntegral (length results))) * 100.0

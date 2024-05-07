@@ -1,4 +1,4 @@
-module Weather (weather) where
+module Main where
 
 import Text.CSV
 import System.Random (newStdGen)
@@ -75,8 +75,8 @@ train trainingDatas = do
           epochNb = 400
           batchSize = 1000
 
-weather :: IO()
-weather = do
+main :: IO()
+main = do
     rng <- newStdGen
     currentDir <- getCurrentDirectory
     csvTrain <- parseCSVOrError "/data/weather/train.csv"

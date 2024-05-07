@@ -1,13 +1,15 @@
 -- PLEASE DOWNLOAD THE REQUIRED DATAS IF YOU WANT TO RUN THIS PROGRAM 
 -- https://www.kaggle.com/datasets/swaroopkml/cifar10-pngs-in-folders?resource=download
 
-module Cifar (cifar) where
+module Main where
+
+import Functional           (softmax, precision, indexOfMax)
 
 import Torch.Optim          (foldLoop)
-import ReadImage (imageToRGBList)
+import ReadImage            (imageToRGBList)
 
-import Control.Monad (when)
-import Data.List (sortBy, maximumBy)
+import Control.Monad        (when)
+import Data.List            (sortBy, maximumBy)
 
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
 import Torch.Functional     (mseLoss, Dim(..), exp, sumAll, div)
@@ -15,8 +17,8 @@ import Torch.NN             (sample,flattenParameters)
 import Torch.Optim          (GD(..), Adam(..), mkAdam, runStep, foldLoop)
 import Torch.Device         (Device(..),DeviceType(..))
 import Torch.Train          (update, saveParams, loadParams)
-import Torch.Layer.MLP (MLPHypParams(..), MLPParams(..), ActName(..), mlpLayer)
-import ML.Exp.Chart (drawLearningCurve) --nlp-tools
+import Torch.Layer.MLP      (MLPHypParams(..), MLPParams(..), ActName(..), mlpLayer)
+import ML.Exp.Chart         (drawLearningCurve) --nlp-tools
 
 getObjectData :: String -> Int -> Int -> IO [(Tensor, Tensor)]
 getObjectData folderName output maxNb = do
@@ -56,44 +58,39 @@ loss model (input, output) = let y = forward model input
 forward :: MLPParams -> Tensor -> Tensor
 forward model input = softmax $ mlpLayer model input 
 
-softmax :: Tensor -> Tensor
-softmax input = 
-    let expInput =  Torch.Functional.exp input
-        expSum = sumAll expInput
-    in Torch.Functional.div expInput expSum
-
-cifar :: IO ()
-cifar = do
+main :: IO ()
+main = do
     let device = Device CPU 0
         epochNb = 10000 
         hypParams = MLPHypParams device 3072 [(256, Relu),(256, Relu),(10, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
 
-    trainingData <- getData "train/"
+    -- trainingData <- getData "train/"
     validationData <- getData "test/"
     -- initModel <- sample hypParams
-    initModel <- loadParams hypParams "models/trainingCifar/cifar_150_41%_687loss.model"
-    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
-    let batchSizeRotation = 2000
-    (trainedModel, _, losses) <- foldLoop (initModel, optimizer, [], trainingData) epochNb $ \(model, opt, losses, batch) i -> do 
-        let epochLoss = sum (map (loss model) (take batchSizeRotation batch))
-        let lossValue = asValue epochLoss :: Float
-        putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
-        (trainedModel, nOpt) <- runStep model opt epochLoss 0.001
-        when (i `mod` 50 == 0) $ do
-            putStrLn "Saving..."
-            let results = map (\(input, output) -> if (indexOfMax $ (asValue (forward model input) :: [Float])) == (indexOfMax $ (asValue output :: [Float])) then 1 else 0) validationData
-            let grade = ((sum results) / (fromIntegral (length results))) * 100.0
-            saveParams trainedModel ("models/trainingCifar/cifar_" ++ show (i + 150) ++ "_" ++ show (round grade) ++ "%_" ++ show (round lossValue) ++ "loss.model" )
-            drawLearningCurve "models/graph-cifar.png" "Learning Curve" [("", losses)]
-            putStrLn "Saved..."
-        pure (trainedModel, nOpt, losses ++ [lossValue], (drop batchSizeRotation batch) ++ (take batchSizeRotation batch )) -- pure : transform return type to IO because foldLoop need it 
-    drawLearningCurve "models/graph-cifar.png" "Learning Curve" [("", losses)]
-    saveParams trainedModel "models/cifar.model"
+    -- initModel <- loadParams hypParams "app/cifar/models/trainingCifar/cifar_700_51%_2881loss.model"
+    -- let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
+    -- (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
+    --     let epochLoss = sum (map (loss model) trainingData)
+    --     let lossValue = asValue epochLoss :: Float
+    --     putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
+    --     (trainedModel, nOpt) <- runStep model opt epochLoss 0.001
+    --     when (i `mod` 25 == 0) $ do
+    --         putStrLn "Saving..."
+    --         let results = map (\(input, output) -> if (indexOfMax $ (asValue (forward model input) :: [Float])) == (indexOfMax $ (asValue output :: [Float])) then 1 else 0) validationData
+    --         let grade = ((sum results) / (fromIntegral (length results))) * 100.0
+    --         saveParams trainedModel ("models/trainingCifar/cifar_" ++ show (i + 700) ++ "_" ++ show (round grade) ++ "%_" ++ show (round lossValue) ++ "loss.model" )
+    --         drawLearningCurve "models/graph-cifar.png" "Learning Curve" [("", losses)]
+    --         putStrLn "Saved..."
+    --     pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
+    -- drawLearningCurve "models/graph-cifar.png" "Learning Curve" [("", losses)]
+    -- saveParams trainedModel "models/cifar.model"
 
 
 
-    model <- loadParams hypParams "models/trainingCifar/cifar_150_41%_687loss.model"
+    model <- loadParams hypParams "app/cifar/models/trainingCifar/cifar_700_51%_2881loss.model"
     
+    putStrLn $ show $ accuracy model forward validationData
+
     -- let results = map (\(input, output) -> if (indexOfMax $ (asValue (forward model input) :: [Float])) == (indexOfMax $ (asValue output :: [Float])) then 1 else 0) trainingData
     -- let grade = ((sum results) / (fromIntegral (length results))) * 100.0
     -- putStrLn $ "Res : " ++ show grade ++ "%"
@@ -112,17 +109,17 @@ cifar = do
     -- let csvOutput = map (\(passengerId, prediction) -> [show passengerId, show prediction]) output
     -- BL.writeFile "output3.csv" $ encode csvOutput
 
-    image <- imageToRGBList "data/cifar10/train/deer/0139.png" 
-    case image of
-        Left _ -> return []
-        Right rgbData -> do 
-            let inputData = asTensor rgbData
-            let calculated = forward model inputData
-            let guess = asValue calculated :: [Float]
-            let both = zip lookTable guess
-            let sorted = reverse $ sortByFloat both
-            print sorted
-            return []
+    -- image <- imageToRGBList "data/cifar10/train/deer/0139.png" 
+    -- case image of
+    --     Left _ -> return []
+    --     Right rgbData -> do 
+    --         let inputData = asTensor rgbData
+    --         let calculated = forward model inputData
+    --         let guess = asValue calculated :: [Float]
+    --         let both = zip lookTable guess
+    --         let sorted = reverse $ sortByFloat both
+    --         print sorted
+    --         return []
     return ()
     
 
@@ -130,7 +127,3 @@ lookTable = ["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "ho
 
 sortByFloat :: [(String, Float)] -> [(String, Float)]
 sortByFloat = sortBy (\(_, x) (_, y) -> compare x y)
-
-
-indexOfMax :: Ord a => [a] -> Int
-indexOfMax xs = snd $ maximumBy (\x y -> compare (fst x) (fst y)) (zip xs [0..])
