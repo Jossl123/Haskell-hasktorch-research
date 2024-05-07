@@ -12,3 +12,4 @@ parseCSVOrError filePath = do
     case csv of
         Right csvData -> return csvData
         Left err -> error $ "Error parsing CSV: " ++ show err
+

@@ -49,7 +49,6 @@ executable cifar
   main-is: Main.hs
   other-modules:
       MainGrayScale
-      Submit
       Paths_haskell_hasktorch_research
   hs-source-dirs:
       app/cifar

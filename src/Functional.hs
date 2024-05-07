@@ -1,4 +1,4 @@
-module Functional (softmax, accuracy, indexOfMax, precision, recall, f1, macroAvg, weightedAvg) where
+module Functional (softmax, accuracy, indexOfMax, precision, recall, f1, macroAvg, weightedAvg,sortByFloat) where
 import Data.List            (sortBy, maximumBy)
 
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
@@ -58,7 +58,9 @@ weightedAvg model forward trainingData = result
           weightedF1 = Torch.Functional.mul weights f1score
           result = asValue (sumAll weightedF1) :: Float
 
-
-
 indexOfMax :: Ord a => [a] -> Int
 indexOfMax xs = snd $ maximumBy (\x y -> compare (fst x) (fst y)) (zip xs [0..])
+
+
+sortByFloat :: [(String, Float)] -> [(String, Float)]
+sortByFloat = sortBy (\(_, x) (_, y) -> compare x y)
