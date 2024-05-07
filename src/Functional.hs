@@ -58,9 +58,15 @@ weightedAvg model forward trainingData = result
           weightedF1 = Torch.Functional.mul weights f1score
           result = asValue (sumAll weightedF1) :: Float
 
+-- confusionMatrix :: MLPParams -> (MLPParams -> Tensor -> Tensor) -> [(Tensor,Tensor)] -> [Tensor]
+-- confusionMatrix = 
+--     where guess = outputResClean $ forward model input
+
+
+
+
 indexOfMax :: Ord a => [a] -> Int
 indexOfMax xs = snd $ maximumBy (\x y -> compare (fst x) (fst y)) (zip xs [0..])
-
 
 sortByFloat :: [(String, Float)] -> [(String, Float)]
 sortByFloat = sortBy (\(_, x) (_, y) -> compare x y)

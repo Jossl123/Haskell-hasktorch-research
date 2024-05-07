@@ -65,12 +65,14 @@ main :: IO ()
 main = do
     let device = Device CPU 0
         epochNb = 10000 
-        hypParams = MLPHypParams device 3072 [(256, Relu),(256, Relu),(10, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
+        hypParams = MLPHypParams device 3072 [(1028, Relu),(256, Relu), (64, Relu),(10, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
 
+    putStrLn "grabing data..."
     trainingData <- getData "train/"
     validationData <- getData "test/"
-    -- initModel <- sample hypParams
-    initModel <- loadParams hypParams "app/cifar/models/trainingCifar/cifar_700_51%_2881loss.model"
+    initModel <- sample hypParams
+    putStrLn "start training"
+    -- initModel <- loadParams hypParams "app/cifar/models/trainingCifar/cifar_700_51%_2881loss.model"
     let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
     (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
         let epochLoss = sum (map (loss model) trainingData)
@@ -79,7 +81,7 @@ main = do
         (trainedModel, nOpt) <- runStep model opt epochLoss 0.001
         when (i `mod` 25 == 0) $ do
             putStrLn "Saving..."
-            saveParams trainedModel ("app/cifar/models/trainingCifar/cifar_" ++ show (i + 700) ++ "_" ++ show (round (100 * (accuracy model forward trainingData))) ++ "%_" ++ show (round lossValue) ++ "loss.model" )
+            saveParams trainedModel ("app/cifar/models/trainingCifar/cifar_" ++ show (i + 0) ++ "_" ++ show (round (100 * (accuracy model forward trainingData))) ++ "%_" ++ show (round lossValue) ++ "loss.model" )
             drawLearningCurve "app/cifar/models/graph-cifar.png" "Learning Curve" [("", losses)]
             putStrLn "Saved..."
         pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
