@@ -6,6 +6,7 @@ module Main where
 import Functional           (softmax, accuracy, indexOfMax,sortByFloat,confusionMatrix)
 
 import Graphics.Matplotlib
+import Graphics.Matplotlib.Internal
 import System.Random
 import Data.List.Split
 
@@ -66,11 +67,11 @@ forward :: MLPParams -> Tensor -> Tensor
 forward model input = softmax $ mlpLayer model input 
 
 confusionMatrixPlot :: [[Float]] -> Matplotlib
-confusionMatrixPlot m = pcolor m @@ [o2 "edgecolors" "k", o2 "linewidth" (1 :: Int)]
-      % title "Confusion Matrix"
-      % xlabel "Actual"
-      % ylabel "Expected"
-      % colorbar
+confusionMatrixPlot m = 
+    let displayedData = concat $ [[text ((x+0.5) :: Double) ((y+0.5) :: Double) (show v) @@ [o2 "ha" "center", o2 "va" "center", o2 "fontsize" (8 :: Int)] | (v,x) <- zip l [0..]] | (l,y) <- zip m [0..]]
+    in pcolor m @@ [o2 "edgecolors" "k", o2 "linewidth" (1 :: Int)]
+       % foldr (%) (title "Confusion Matrix" % xlabel "Actual" % ylabel "Expected" % colorbar) displayedData
+
 
 main :: IO ()
 main = do
