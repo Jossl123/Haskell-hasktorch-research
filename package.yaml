@@ -30,6 +30,8 @@ dependencies:
 - hip
 - JuicyPixels
 - matrix
+- matplotlib
+- split
 ghc-options:
 - -Wall
 - -Wcompat

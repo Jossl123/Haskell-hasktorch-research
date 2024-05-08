@@ -1,4 +1,4 @@
-module Functional (softmax, accuracy, indexOfMax, precision, recall, f1, macroAvg, weightedAvg,sortByFloat) where
+module Functional (softmax, accuracy, indexOfMax, precision, recall, f1,matWithOne, macroAvg, weightedAvg,sortByFloat,confusionMatrix) where
 import Data.List            (sortBy, maximumBy)
 
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
@@ -58,9 +58,21 @@ weightedAvg model forward trainingData = result
           weightedF1 = Torch.Functional.mul weights f1score
           result = asValue (sumAll weightedF1) :: Float
 
--- confusionMatrix :: MLPParams -> (MLPParams -> Tensor -> Tensor) -> [(Tensor,Tensor)] -> [Tensor]
--- confusionMatrix = 
---     where guess = outputResClean $ forward model input
+matWithOne :: Int -> Int -> Int -> Tensor
+matWithOne x y dim = asTensor $ (replicate x zer) ++ [oneLine] ++ (replicate (dim-x-1) zer)
+    where oneLine = (replicate y (0 :: Float) ) ++ [1.0] ++ (replicate (dim - y - 1) (0::Float) )
+          zer = replicate dim (0 :: Float)
+
+addAll :: [Tensor] -> Tensor
+addAll (x:[]) = x
+addAll (x:xs) = Torch.Functional.add x (addAll xs)
+
+confusionMatrix :: MLPParams -> (MLPParams -> Tensor -> Tensor) -> [(Tensor,Tensor)] -> Tensor
+confusionMatrix model forward trainingData = addAll [ matWithOne (indexOfMax (asValue expect :: [Float])) (indexOfMax (asValue guess :: [Float])) classificationSize | (expect, guess) <- zip expected guesses]
+    where guesses = map (\(input, _) -> outputResClean $ forward model input) trainingData
+          expected = map snd trainingData
+          (_, output) = trainingData !! 0
+          classificationSize = length $ (asValue output :: [Float])
 
 
 

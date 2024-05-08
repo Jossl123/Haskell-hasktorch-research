@@ -3,7 +3,11 @@
 
 module Main where
 
-import Functional           (softmax, accuracy, indexOfMax,sortByFloat)
+import Functional           (softmax, accuracy, indexOfMax,sortByFloat,confusionMatrix)
+
+import Graphics.Matplotlib
+import System.Random
+import Data.List.Split
 
 import Torch.Optim          (foldLoop)
 import ReadImage            (imageToRGBList)
@@ -61,33 +65,49 @@ loss model (input, output) = let y = forward model input
 forward :: MLPParams -> Tensor -> Tensor
 forward model input = softmax $ mlpLayer model input 
 
+mmat :: [[Float]] -> Matplotlib
+mmat m = pcolor m @@ [o2 "edgecolors" "k", o2 "linewidth" (1 :: Int)]
+
 main :: IO ()
 main = do
     let device = Device CPU 0
         epochNb = 10000 
-        hypParams = MLPHypParams device 3072 [(1028, Relu),(256, Relu), (64, Relu),(10, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
+        hypParams = MLPHypParams device 3072 [(256, Relu),(256, Relu),(10, Id)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
 
-    putStrLn "grabing data..."
-    trainingData <- getData "train/"
-    validationData <- getData "test/"
-    initModel <- sample hypParams
-    putStrLn "start training"
-    -- initModel <- loadParams hypParams "app/cifar/models/trainingCifar/cifar_700_51%_2881loss.model"
-    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
-    (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
-        let epochLoss = sum (map (loss model) trainingData)
-        let lossValue = asValue epochLoss :: Float
-        putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
-        (trainedModel, nOpt) <- runStep model opt epochLoss 0.001
-        when (i `mod` 25 == 0) $ do
-            putStrLn "Saving..."
-            saveParams trainedModel ("app/cifar/models/trainingCifar/cifar_" ++ show (i + 0) ++ "_" ++ show (round (100 * (accuracy model forward trainingData))) ++ "%_" ++ show (round lossValue) ++ "loss.model" )
-            drawLearningCurve "app/cifar/models/graph-cifar.png" "Learning Curve" [("", losses)]
-            putStrLn "Saved..."
-        pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
-    drawLearningCurve "app/cifar/models/graph-cifar.png" "Learning Curve" [("", losses)]
-    saveParams trainedModel "app/cifar/models/cifar.model"
     
+
+
+    -- putStrLn "grabing data..."
+    -- trainingData <- getData "train/"
+    validationData <- getData "test/"
+    putStrLn "data grabbed"
+    -- initModel <- sample hypParams
+    -- putStrLn "start training"
+    -- -- initModel <- loadParams hypParams "app/cifar/models/trainingCifar/cifar_700_51%_2881loss.model"
+    -- let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
+    -- (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
+    --     let epochLoss = sum (map (loss model) trainingData)
+    --     let lossValue = asValue epochLoss :: Float
+    --     putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
+    --     (trainedModel, nOpt) <- runStep model opt epochLoss 0.001
+    --     when (i `mod` 25 == 0) $ do
+    --         putStrLn "Saving..."
+    --         saveParams trainedModel ("app/cifar/models/trainingCifar/cifar_" ++ show (i + 0) ++ "_" ++ show (round (100 * (accuracy model forward trainingData))) ++ "%_" ++ show (round lossValue) ++ "loss.model" )
+    --         drawLearningCurve "app/cifar/models/graph-cifar.png" "Learning Curve" [("", losses)]
+    --         putStrLn "Saved..."
+    --     pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
+    -- drawLearningCurve "app/cifar/models/graph-cifar.png" "Learning Curve" [("", losses)]
+    -- saveParams trainedModel "app/cifar/models/cifar.model"
+    
+    model <- loadParams hypParams "app/cifar/models/trainingCifar_256_256/cifar_700_51%_2881loss.model"
+    putStrLn "model loaded"    
+
+    let confMat = confusionMatrix model forward validationData
+    putStrLn "confmat calculated"
+    print confMat
+    file "app/cifar/confusion_matrix.png" $ mmat $ (asValue confMat :: [[Float]])
+
+
     return ()
 
 
