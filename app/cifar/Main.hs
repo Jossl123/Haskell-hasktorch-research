@@ -65,8 +65,12 @@ loss model (input, output) = let y = forward model input
 forward :: MLPParams -> Tensor -> Tensor
 forward model input = softmax $ mlpLayer model input 
 
-mmat :: [[Float]] -> Matplotlib
-mmat m = pcolor m @@ [o2 "edgecolors" "k", o2 "linewidth" (1 :: Int)]
+confusionMatrixPlot :: [[Float]] -> Matplotlib
+confusionMatrixPlot m = pcolor m @@ [o2 "edgecolors" "k", o2 "linewidth" (1 :: Int)]
+      % title "Confusion Matrix"
+      % xlabel "Actual"
+      % ylabel "Expected"
+      % colorbar
 
 main :: IO ()
 main = do
@@ -105,7 +109,7 @@ main = do
     let confMat = confusionMatrix model forward validationData
     putStrLn "confmat calculated"
     print confMat
-    file "app/cifar/confusion_matrix.png" $ mmat $ (asValue confMat :: [[Float]])
+    file "app/cifar/confusion_matrix.png" $ confusionMatrixPlot $ (asValue confMat :: [[Float]])
 
 
     return ()
