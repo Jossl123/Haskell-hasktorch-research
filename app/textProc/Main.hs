@@ -6,17 +6,17 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 
 module Main
-  ( main
-  ) where
+    ( main
+    ) where
 
 import           Codec.Binary.UTF8.String (encode)
 import qualified Data.ByteString.Lazy     as B
-import          Data.Text.Lazy            as TL (unpack, pack)
-import Data.Text.Lazy.Encoding            as TL (decodeUtf8, encodeUtf8)
+import           Data.Char                (toLower)
 import           Data.List                (nub)
 import qualified Data.Map.Strict          as M
+import           Data.Text.Lazy           as TL (pack, unpack)
+import           Data.Text.Lazy.Encoding  as TL (decodeUtf8, encodeUtf8)
 import           Data.Word                (Word8)
-import           Data.Char                (toLower)  
 import           GHC.Generics
 
 import           Torch.Autograd           (makeIndependent, toDependent)
@@ -27,6 +27,7 @@ import           Torch.Tensor             (Tensor, asTensor, asValue)
 import           Torch.TensorFactories    (eye', zeros')
 
 import           Functional               (sortBySnd)
+
 
 -- your text data (try small data first)
 textFilePath = "data/textProc/review-texts.txt"
@@ -49,22 +50,26 @@ data Embedding =
     deriving (Show, Generic, Parameterized)
 
 isUnncessaryChar :: Word8 -> Bool
-isUnncessaryChar str = str `elem` (map (head . encode)) [".", "!", "<", ">", "/", "\"", "-", "(", ")", ":", ";", ",", "?", "@"]
+isUnncessaryChar str =
+    str `elem`
+    (map (head . encode))
+        [".", "!", "<", ">", "/", "\"", "-", "(", ")", ":", ";", ",", "?", "@"]
 
 preprocess ::
-    B.ByteString -- input
-    -> [B.ByteString] -- wordlist per line
-preprocess texts =  map (\s -> toByteString $ map toLower $ toString s) $ concat words
+     B.ByteString -- input
+  -> [B.ByteString] -- wordlist per line
+preprocess texts = map (\s -> toByteString $ map toLower $ toString s) words
     where
-        toByteString = TL.encodeUtf8 . TL.pack
-        toString =  TL.unpack . TL.decodeUtf8  
+        toByteString  = TL.encodeUtf8 . TL.pack
+        toString      = TL.unpack . TL.decodeUtf8
         filteredtexts = B.pack $ filter (not . isUnncessaryChar) (B.unpack texts)
         textLines     = B.split (head $ encode "\n") filteredtexts
-        words         = map (B.split (head $ encode " ")) textLines
+        wordsLst      = map (B.split (head $ encode " ")) textLines
+        words         = filter (not . B.null) $ concat wordsLst
 
 wordToIndexFactory ::
-    [B.ByteString] -- wordlist
-    -> (B.ByteString -> Int) -- function converting bytestring to index (unknown word: 0)
+     [B.ByteString] -- wordlist
+  -> (B.ByteString -> Int) -- function converting bytestring to index (unknown word: 0)
 wordToIndexFactory wordlst wrd =
     M.findWithDefault (length wordlst) wrd (M.fromList (zip wordlst [0 ..]))
 
@@ -72,7 +77,7 @@ toyEmbedding :: EmbeddingSpec -> Tensor -- embedding
 toyEmbedding EmbeddingSpec {..} = eye' wordNum wordDim
 
 count :: Eq a => a -> [a] -> Int
-count x = length . filter (x==)
+count x = length . filter (x ==)
 
 main :: IO ()
 main = do
@@ -104,21 +109,21 @@ extractWordLst textFilePath = do
     -- load text file
     texts <- B.readFile textFilePath
     putStrLn "loaded text file"
-    -- create word lst (unique)
-    let wordL = take 10000 $ preprocess texts
-        wordFrequent = [ (word, count word wordL) | word <- (nub $ wordL)]
+        -- create word lst (unique)
+    let wordL = take 100000 $ preprocess texts
+        wordFrequent = [(word, count word wordL) | word <- (nub $ wordL)]
         wordFrequentSorted = reverse $ sortBySnd wordFrequent
         wordFrequentTop = take 1000 wordFrequentSorted
         wordlst = [word | (word, _) <- wordFrequentTop]
         wordToIndex = wordToIndexFactory wordlst
     putStrLn "created word list"
-    -- create embedding(wordDim × wordNum)
-    let embsddingSpec = EmbeddingSpec {wordNum = length wordlst, wordDim = length wordlst}
+        -- create embedding(wordDim × wordNum)
+    let embsddingSpec =
+            EmbeddingSpec {wordNum = length wordlst, wordDim = length wordlst}
     wordEmb <- makeIndependent $ toyEmbedding embsddingSpec
     let emb = Embedding {wordEmbedding = wordEmb}
-    -- save params
+        -- save params
     saveParams emb modelPath
-  
+        
     -- save word list
     B.writeFile wordLstPath (B.intercalate (B.pack $ encode "\n") wordlst)
-    
