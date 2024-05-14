@@ -31,7 +31,11 @@ dependencies:
 - JuicyPixels
 - matrix
 - matplotlib
+- stringsearch
 - split
+- text
+- utf8-string
+- containers
 ghc-options:
 - -Wall
 - -Wcompat
@@ -63,11 +67,6 @@ executables:
     source-dirs: app/titanic
     ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
     dependencies: haskell-hasktorch-research
-  xor:
-    main: Main.hs
-    source-dirs: app/xor
-    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
-    dependencies: haskell-hasktorch-research
   linear:
     main: Main.hs
     source-dirs: app/linear
@@ -83,4 +82,13 @@ executables:
     source-dirs: app/xor
     ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
     dependencies: haskell-hasktorch-research
-  
+  camera:
+    main: Main.hs
+    source-dirs: app/camera
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research
+  textProc:
+    main: Main.hs
+    source-dirs: app/textProc
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research

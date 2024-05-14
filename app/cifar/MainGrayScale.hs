@@ -108,7 +108,7 @@ cifar = do
     --         let calculated = forward model inputData
     --         let guess = asValue calculated :: [Float]
     --         let both = zip lookTable guess
-    --         let sorted = reverse $ sortByFloat both
+    --         let sorted = reverse $ sortBySnd both
     --         print sorted
             -- return []
     return ()
@@ -116,8 +116,8 @@ cifar = do
 
 lookTable = ["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
 
-sortByFloat :: [(String, Float)] -> [(String, Float)]
-sortByFloat = sortBy (\(_, x) (_, y) -> compare x y)
+sortBySnd :: [(String, Float)] -> [(String, Float)]
+sortBySnd = sortBy (\(_, x) (_, y) -> compare x y)
 
 
 indexOfMax :: Ord a => [a] -> Int

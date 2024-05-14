@@ -28,3 +28,4 @@ data/cifar10
 data/test
 outputs
 ideas.md
+./app/cifar/models/*
