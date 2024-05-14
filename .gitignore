@@ -26,6 +26,7 @@ cabal.project.local~
 .ghc.environment.*
 data/cifar10
 data/test
+data/textProc
 outputs
 ideas.md
-./app/cifar/models/*
+app/cifar/models/*

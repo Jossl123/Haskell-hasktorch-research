@@ -34,6 +34,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , cassava
+    , containers
     , csv
     , directory
     , hasktorch
@@ -45,6 +46,39 @@ library
     , random
     , random-shuffle
     , split
+    , stringsearch
+    , text
+    , utf8-string
+  default-language: Haskell2010
+
+executable camera
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/camera
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , containers
+    , csv
+    , directory
+    , haskell-hasktorch-research
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matplotlib
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+    , split
+    , stringsearch
+    , text
+    , utf8-string
   default-language: Haskell2010
 
 executable cifar
@@ -60,6 +94,7 @@ executable cifar
     , base >=4.7 && <5
     , bytestring
     , cassava
+    , containers
     , csv
     , directory
     , haskell-hasktorch-research
@@ -72,6 +107,9 @@ executable cifar
     , random
     , random-shuffle
     , split
+    , stringsearch
+    , text
+    , utf8-string
   default-language: Haskell2010
 
 executable linear
@@ -86,6 +124,7 @@ executable linear
     , base >=4.7 && <5
     , bytestring
     , cassava
+    , containers
     , csv
     , directory
     , haskell-hasktorch-research
@@ -98,6 +137,39 @@ executable linear
     , random
     , random-shuffle
     , split
+    , stringsearch
+    , text
+    , utf8-string
+  default-language: Haskell2010
+
+executable textProc
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/textProc
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , containers
+    , csv
+    , directory
+    , haskell-hasktorch-research
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matplotlib
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+    , split
+    , stringsearch
+    , text
+    , utf8-string
   default-language: Haskell2010
 
 executable titanic
@@ -112,6 +184,7 @@ executable titanic
     , base >=4.7 && <5
     , bytestring
     , cassava
+    , containers
     , csv
     , directory
     , haskell-hasktorch-research
@@ -124,6 +197,9 @@ executable titanic
     , random
     , random-shuffle
     , split
+    , stringsearch
+    , text
+    , utf8-string
   default-language: Haskell2010
 
 executable weather
@@ -139,6 +215,7 @@ executable weather
     , base >=4.7 && <5
     , bytestring
     , cassava
+    , containers
     , csv
     , directory
     , haskell-hasktorch-research
@@ -151,6 +228,9 @@ executable weather
     , random
     , random-shuffle
     , split
+    , stringsearch
+    , text
+    , utf8-string
   default-language: Haskell2010
 
 executable xor
@@ -165,6 +245,7 @@ executable xor
     , base >=4.7 && <5
     , bytestring
     , cassava
+    , containers
     , csv
     , directory
     , haskell-hasktorch-research
@@ -177,4 +258,7 @@ executable xor
     , random
     , random-shuffle
     , split
+    , stringsearch
+    , text
+    , utf8-string
   default-language: Haskell2010
