@@ -20,6 +20,7 @@ import Control.Monad        (when)
 import Data.List            (sortBy, maximumBy)
 
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
+import Torch.TensorFactories (zeros')
 import Torch.Functional     (mseLoss, Dim(..), exp, sumAll, div)
 import Torch.NN             (sample,flattenParameters)
 import Torch.Optim          (GD(..), Adam(..), mkAdam, runStep, foldLoop)
@@ -46,29 +47,52 @@ loss model (input, output) = let y = mlpLayer model input
 
 main :: IO ()
 main = do
-    wordlst <- loadWordLst wordLstPath
     let device = Device CPU 0
-        epochNb = 20 
-        wordDim = 5
-        wordNum = 10
-        hypParams = MLPHypParams device wordNum [(wordDim, Id),(wordNum, Softmax)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
+        epochNb = 100
+        wordDim = 16
+        wordNum = 1000
+        wordToReadInFile = 10000
+        hypParams = MLPHypParams device wordNum [(wordDim, Id),(wordNum, Softmax)] 
+
+    -- extractWordLst textFilePath wordToReadInFile wordNum
+    wordlst <- loadWordLst wordLstPath
+    trainingText <- B.readFile textFilePath
 
     initModel <- sample hypParams
-    putStrLn "start training"
-    print $ wordlst
-    print $ (packOfFollowingWords wordlst 1)
-    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
-        trainingData = getTrainingData wordlst (packOfFollowingWords wordlst 1)
-    print trainingData
-    (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
-        let epochLoss = sum (map (loss model) trainingData)
-        let lossValue = asValue epochLoss :: Float
-        putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
-        (trainedModel, nOpt) <- runStep model opt epochLoss 0.002
-        pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
+
+    -- let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
+    --     trainingTextWords = take wordToReadInFile $ preprocess trainingText
+    -- trainingData <- getTrainingData wordlst (packOfFollowingWords trainingTextWords 1)
+    -- print trainingTextWords
+    -- putStrLn "start training"
+    -- print $ map (\(x, y) -> sumAll y) trainingData
+    -- (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
+    --     let epochLoss = sum (map (loss model) trainingData)
+    --     let lossValue = asValue epochLoss :: Float
+    --     putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
+    --     (trainedModel, nOpt) <- runStep model opt epochLoss 0.1
+    --     pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
+    -- saveParams trainedModel modelPath
+
+
+    model <- loadParams hypParams modelPath
+
+    let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "device") wordlst
+    print input
+    print $ mlpLayer initModel input
+    let output = mlpLayer model input
+    let outputWords = zip wordlst $ (asValue output :: [Float])
+    print $ take 10 $ reverse $ sortBySnd outputWords
 
     return ()
 
+wordToIndex :: B.ByteString -> [B.ByteString] -> Int
+wordToIndex word wordlst = if length indexs > 0 then head indexs else -1
+    where indexs = (catMaybes [elemIndex word wordlst])
+
+wordToOneHot :: B.ByteString -> [B.ByteString] -> Tensor
+wordToOneHot word wordlst = if index >= 0 then oneAtPos index (length wordlst) else zeros' [length wordlst]
+    where index = wordToIndex word wordlst
 
 -- your text data (try small data first)
 textFilePath = "data/textProc/review-texts.txt"
@@ -82,7 +106,7 @@ isUnncessaryChar :: Word8 -> Bool
 isUnncessaryChar str =
     str `elem`
     (map (head . encode))
-        [".", "!", "<", ">", "/", "\"", "-", "(", ")", ":", ";", ",", "?", "@"]
+        [".", "!", "<", ">", "/", "\"", "(", ")", ":", ";", ",", "?", "@"]
 
 preprocess ::
      B.ByteString -- input
@@ -111,11 +135,14 @@ packOfFollowingWords [x] _ = []
 packOfFollowingWords (x:xs) n = if length xs > n then (take n $ tail xs , head xs) : packOfFollowingWords xs n else []
 
 -- Convert data into training data
-getTrainingData :: [B.ByteString] -> [([B.ByteString], B.ByteString)] -> [(Tensor, Tensor)]
-getTrainingData wordlst dataPack = map (\(x, y) -> (input x, output y)) dataPack
-    where input x = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (idxLst x)
-          idxLst x = catMaybes $ map (`elemIndex` wordlst) x
-          output y = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (catMaybes [elemIndex y wordlst])
+getTrainingData :: [B.ByteString] -> [([B.ByteString], B.ByteString)] -> IO [(Tensor, Tensor)]
+getTrainingData wordlst dataPack = do 
+    let input x = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (idxLst x)
+        idxLst x = catMaybes $ map (`elemIndex` wordlst) x
+        output y = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (catMaybes [elemIndex y wordlst])
+        res = map (\(x, y) -> (input x, output y)) dataPack
+        filteredRes = filter (\(x, y) -> (length (asValue x :: [Float]) > 0) && (length (asValue y :: [Float]) > 0)) res
+    return filteredRes
 
 loadWordLst :: FilePath -> IO [B.ByteString]
 loadWordLst wordLstPath = do
@@ -123,16 +150,16 @@ loadWordLst wordLstPath = do
     let wordlst = B.split (head $ encode "\n") texts
     return wordlst
 
-extractWordLst :: FilePath -> IO ()
-extractWordLst textFilePath = do
+extractWordLst :: FilePath -> Int -> Int -> IO ()
+extractWordLst textFilePath wordsToReadInFile wordNbToGrab = do
     -- load text file
     texts <- B.readFile textFilePath
     putStrLn "loaded text file"
         -- create word lst (unique)
-    let wordL = take 1000 $ preprocess texts
+    let wordL = take wordsToReadInFile $ preprocess texts
         wordFrequent = [(word, count word wordL) | word <- (nub $ wordL)]
         wordFrequentSorted = reverse $ sortBySnd wordFrequent
-        wordFrequentTop = take 10 wordFrequentSorted
+        wordFrequentTop = take wordNbToGrab wordFrequentSorted
         wordlst = [word | (word, _) <- wordFrequentTop]
         wordToIndex = wordToIndexFactory wordlst
     putStrLn "created word list"
