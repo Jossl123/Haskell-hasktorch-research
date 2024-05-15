@@ -12,7 +12,7 @@ import Graphics.Matplotlib
 import System.Random
 import Data.List.Split
 import Data.List (elemIndex)
-
+import Data.Maybe (fromJust)
 import Torch.Optim          (foldLoop)
 import ReadImage            (imageToRGBList)
 
@@ -26,7 +26,9 @@ import Torch.NN             (sample,flattenParameters)
 import Torch.Optim          (GD(..), Adam(..), mkAdam, runStep, foldLoop)
 import Torch.Device         (Device(..),DeviceType(..))
 import Torch.Train          (update, saveParams, loadParams)
+import Torch.Autograd       (toDependent)
 import Torch.Layer.MLP      (MLPHypParams(..), MLPParams(..), ActName(..), mlpLayer)
+import Torch.Layer.Linear   (LinearParams(..))
 import ML.Exp.Chart         (drawLearningCurve,drawConfusionMatrix ) --nlp-tools
 import Torch.Tensor.TensorFactories (oneAtPos)
 
@@ -48,24 +50,23 @@ loss model (input, output) = let y = mlpLayer model input
 main :: IO ()
 main = do
     let device = Device CPU 0
-        epochNb = 100
-        wordDim = 16
-        wordNum = 1000
-        wordToReadInFile = 10000
+        epochNb = 30
+        wordDim = 32
+        wordNum = 8198
+        wordToReadInFile = 100000
         hypParams = MLPHypParams device wordNum [(wordDim, Id),(wordNum, Softmax)] 
 
     -- extractWordLst textFilePath wordToReadInFile wordNum
     wordlst <- loadWordLst wordLstPath
     trainingText <- B.readFile textFilePath
 
-    initModel <- sample hypParams
+    -- initModel <- sample hypParams
 
     -- let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
     --     trainingTextWords = take wordToReadInFile $ preprocess trainingText
+    -- putStrLn "grabbing training data..."
     -- trainingData <- getTrainingData wordlst (packOfFollowingWords trainingTextWords 1)
-    -- print trainingTextWords
     -- putStrLn "start training"
-    -- print $ map (\(x, y) -> sumAll y) trainingData
     -- (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
     --     let epochLoss = sum (map (loss model) trainingData)
     --     let lossValue = asValue epochLoss :: Float
@@ -78,13 +79,34 @@ main = do
     model <- loadParams hypParams modelPath
 
     let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "device") wordlst
-    print input
-    print $ mlpLayer initModel input
+    -- print input
+    -- print $ mlpLayer initModel input
     let output = mlpLayer model input
     let outputWords = zip wordlst $ (asValue output :: [Float])
+
+
+    let word2vec = zip wordlst $ (asValue (toDependent $ weight $ fst $ head $ tail $ layers model) :: [[Float]])
+    let word2vecDict = M.fromList word2vec
+    let me = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "me") word2vecDict 
+    let this =asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "android") word2vecDict 
+    let you =asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "you") word2vecDict 
+    
+    let res = asValue (this) :: [Float]
+
+    let mostSim = take 10 $ reverse $ sortBySnd $ map (\(word, vec) -> (word, similarityCosine res vec)) word2vec
+    print mostSim
     print $ take 10 $ reverse $ sortBySnd outputWords
 
     return ()
+
+dotProduct :: [Float] -> [Float] -> Float
+dotProduct x y = sum $ zipWith (*) x y
+
+magnitude :: [Float] -> Float
+magnitude x = sqrt $ sum $ map (^2) x
+
+similarityCosine :: [Float] -> [Float] -> Float
+similarityCosine x y = dotProduct x y / (magnitude x * magnitude y)
 
 wordToIndex :: B.ByteString -> [B.ByteString] -> Int
 wordToIndex word wordlst = if length indexs > 0 then head indexs else -1
@@ -106,7 +128,7 @@ isUnncessaryChar :: Word8 -> Bool
 isUnncessaryChar str =
     str `elem`
     (map (head . encode))
-        [".", "!", "<", ">", "/", "\"", "(", ")", ":", ";", ",", "?", "@"]
+        [".", "!", "<", ">", "/", "\"", "(", ")", ":", ";", ",", "?", "@", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 preprocess ::
      B.ByteString -- input
@@ -142,7 +164,7 @@ getTrainingData wordlst dataPack = do
         output y = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (catMaybes [elemIndex y wordlst])
         res = map (\(x, y) -> (input x, output y)) dataPack
         filteredRes = filter (\(x, y) -> (length (asValue x :: [Float]) > 0) && (length (asValue y :: [Float]) > 0)) res
-    return filteredRes
+    return $ take 10000 $ filteredRes
 
 loadWordLst :: FilePath -> IO [B.ByteString]
 loadWordLst wordLstPath = do
