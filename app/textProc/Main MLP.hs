@@ -22,7 +22,7 @@ import Data.List            (sortBy, maximumBy)
 
 import Torch.Tensor         (asTensor, asValue, Tensor(..))
 import Torch.TensorFactories (zeros')
-import Torch.Functional     (mseLoss, Dim(..), exp, sumAll, div, squeezeAll, softmax)
+import Torch.Functional     (mseLoss, Dim(..), exp, sumAll, div, squeezeAll)
 import Torch.NN             (Parameterized,Randomizable,sample,flattenParameters)
 import Torch.Optim          (GD(..), Adam(..), mkAdam, runStep, foldLoop)
 import Torch.Device         (Device(..),DeviceType(..))
@@ -56,29 +56,28 @@ toPairwise (x : (y : xs)) =
   where
     shift (_, p) q = (p, q)
 data EmbeddingHypParams = EmbeddingHypParams {
-    dev :: Device,
-    wordDim :: Int,
-    wordNum :: Int
-    } deriving (Eq, Show)
+  dev :: Device,
+  inputDim :: Int,
+  layerSpecs :: [(Int,ActName)]
+  } deriving (Eq, Show)
 
 -- | DeriveGeneric Pragmaが必要
 data EmbeddingParams = EmbeddingParams {
-    w1 :: LinearParams,
-    w2 :: LinearParams
-    } deriving (Generic)
+  layers :: [(LinearParams, Tensor -> Tensor)]
+  } deriving (Generic)
 
 instance Parameterized EmbeddingParams
 
 instance Randomizable EmbeddingHypParams EmbeddingParams where
-    sample EmbeddingHypParams{..} = do
-        w1 <- sample $ LinearHypParams dev False wordNum wordDim
-        w2 <- sample $ LinearHypParams dev False wordDim wordNum
-        return $ EmbeddingParams w1 w2
-        
+  sample EmbeddingHypParams{..} = do
+    let layersSpecs = (inputDim,Id):layerSpecs 
+    layers <- forM (toPairwise layersSpecs) $ \((iDim,_),(outputDim,outputAct)) -> do
+          linearL <- sample $ LinearHypParams dev False iDim outputDim
+          return $ (linearL, decodeAct outputAct)
+    return $ EmbeddingParams layers
+
 embLayer :: EmbeddingParams -> Tensor -> Tensor 
-embLayer EmbeddingParams{..} input = softmax (Dim 0) $ l2
-    where l1 = linearLayer w1 input
-          l2 = linearLayer w2 l1
+embLayer EmbeddingParams{..} input = squeezeAll $ foldl' (\vec (layerParam, act) -> act $ linearLayer layerParam vec) input layers
 
 
 loss :: EmbeddingParams -> (Tensor, Tensor) -> Tensor
@@ -97,7 +96,7 @@ main = do
         wordDim = 32
         wordNum = 10000
         wordToReadInFile = 1000000
-        hypParams = EmbeddingHypParams device wordDim wordNum
+        hypParams = EmbeddingHypParams device wordNum [(wordDim, Id),(wordNum, Softmax)] 
 
     -- extractWordLst textFilePath wordToReadInFile wordNum
     wordlst <- loadWordLst wordLstPath
@@ -105,27 +104,26 @@ main = do
 
     initModel <- sample hypParams
 
-    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
-        trainingTextWords = take wordToReadInFile $ preprocess trainingText
-    putStrLn "grabbing training data..."
-    trainingData <- getTrainingData wordlst (packOfFollowingWords trainingTextWords 1)
-    putStrLn "start training"
-    (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
-        let epochLoss = sum (map (loss model) trainingData)
-        let lossValue = asValue epochLoss :: Float
-        putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
-        (trainedModel, nOpt) <- runStep model opt epochLoss 0.1
-        pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
-    saveParams trainedModel modelPath
+    -- let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
+    --     trainingTextWords = take wordToReadInFile $ preprocess trainingText
+    -- putStrLn "grabbing training data..."
+    -- trainingData <- getTrainingData wordlst (packOfFollowingWords trainingTextWords 1)
+    -- putStrLn "start training"
+    -- (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
+    --     let epochLoss = sum (map (loss model) trainingData)
+    --     let lossValue = asValue epochLoss :: Float
+    --     putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
+    --     (trainedModel, nOpt) <- runStep model opt epochLoss 0.1
+    --     pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
+    -- saveParams trainedModel modelPath
 
 
-    model <- loadParams hypParams modelPath
+    -- model <- loadParams hypParams modelPath
 
-    let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "device") wordlst
-    -- print input
-    -- print $ mlpLayer initModel input
-    let output = embLayer initModel input
-    print output
+    -- let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "device") wordlst
+    -- -- print input
+    -- -- print $ mlpLayer initModel input
+    -- let output = mlpLayer model input
     -- let outputWords = zip wordlst $ (asValue output :: [Float])
 
 
