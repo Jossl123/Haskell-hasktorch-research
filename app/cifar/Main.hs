@@ -80,6 +80,7 @@ main = do
     validationData <- getData "test/"
     putStrLn "data grabbed"
     model <- sample hypParams
+    print validationData
     -- initModel <- loadParams hypParams "app/cifar/models/trainingCifar_256_256/cifar_700_51%_2881loss.model"
     -- putStrLn "start training"
     -- let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
@@ -99,7 +100,6 @@ main = do
     
     -- model <- loadParams hypParams "app/cifar/models/trainingCifar_256_256/cifar_2300_89%_181loss.model"
     putStrLn "model loaded"    
-
     -- show confusion matrix with placeholder data
     let results = map (\(input, output) -> (lookTable !! (indexOfMax $ (asValue (oneHot' $ forward model input) :: [Float])), lookTable !! (indexOfMax $ (asValue output :: [Float])))) validationData
     print $ recall model forward validationData
