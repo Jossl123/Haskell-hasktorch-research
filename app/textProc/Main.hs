@@ -165,9 +165,9 @@ exportTrainingData :: FilePath -> FilePath -> [B.ByteString] -> Int -> Int -> IO
 exportTrainingData filePath trainingText wordlst wordToReadInFile traininSetSize = do
     putStrLn "grabbing training data..."
     trainingText <- B.readFile textFilePath
-    let trainingTextWords = take wordToReadInFile $ preprocess trainingText
-        trainingDataPack =
-            take traininSetSize $ packOfFollowingWords trainingTextWords
+    let trainingTextLines = take wordToReadInFile $ preprocess trainingText
+        trainingDataPack = concat $ 
+            take traininSetSize $ map packOfFollowingWords trainingTextLines
         spacedTrainingData =
             map
             (\(bs1, bs2) -> bs1 `B.append` (B.pack $ encode " ") `B.append` bs2)
@@ -240,15 +240,15 @@ isUnncessaryChar str =
 
 preprocess ::
     B.ByteString -- input
-    -> [B.ByteString] -- wordlist per line
-preprocess texts = map (\s -> toByteString $ map toLower $ toString s) words
+    -> [[B.ByteString]] -- wordlist per line
+preprocess texts = map (map (\s -> toByteString $ map toLower $ toString s)) words
     where
         toByteString  = TL.encodeUtf8 . TL.pack
         toString      = TL.unpack . TL.decodeUtf8
         filteredtexts = B.pack $ filter (not . isUnncessaryChar) (B.unpack texts)
         textLines     = B.split (head $ encode "\n") filteredtexts
         wordsLst      = map (B.split (head $ encode " ")) textLines
-        words         = filter (not . B.null) $ concat wordsLst
+        words         = map (filter (not . B.null)) $ wordsLst
 
 wordToIndexFactory ::
     [B.ByteString] -- wordlist
@@ -291,15 +291,16 @@ loadWordLst wordLstPath = do
     return wordlst
 
 extractWordLst :: FilePath -> Int -> Int -> IO ()
-extractWordLst textFilePath wordsToReadInFile wordNbToGrab
+extractWordLst textFilePath linesToReadInFile wordNbToGrab
     -- load text file
     = do
     texts <- B.readFile textFilePath
     putStrLn "loaded text file"
             
     -- create word lst (unique)
-    let wordL = take wordsToReadInFile $ preprocess texts
-        wordFrequent = [(word, count word wordL) | word <- (nub $ wordL)]
+    let wordLines = take linesToReadInFile $ preprocess texts
+        allWords = concat wordLines
+        wordFrequent = [(word, count word allWords) | word <- (nub $ allWords)]
         wordFrequentSorted = reverse $ sortBySnd wordFrequent
         wordFrequentTop = take wordNbToGrab wordFrequentSorted
         wordlst = [word | (word, _) <- wordFrequentTop]
