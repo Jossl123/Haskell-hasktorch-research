@@ -16,6 +16,7 @@ import Data.List (elemIndex,foldl')
 import Data.Maybe (fromJust)
 import Torch.Optim          (foldLoop)
 import ReadImage            (imageToRGBList)
+import Data.Time.Clock (getCurrentTime, diffUTCTime)
 
 import Control.Monad        (when,forM) --base
 import Data.List            (sortBy, maximumBy)
@@ -101,14 +102,21 @@ loss model (input, output) = let y = embLayer model input
 -- forwardOpti model input = 
 --     let word2vec = zip wordlst $ (asValue (toDependent $ weight $ fst $ head $ tail $ layers model) :: [[Float]])
 
+chronometer :: IO a -> IO (a, Double)
+chronometer action = do
+    start <- getCurrentTime
+    result <- action
+    end <- getCurrentTime
+    let diff = realToFrac $ diffUTCTime end start
+    return (result, diff)
 
 main :: IO ()
 main = do
     let device = Device CPU 0
-        epochNb = 300
+        epochNb = 20
         wordDim = 16
         wordNum = 1000
-        wordToReadInFile = 100000
+        wordToReadInFile = 1000000
         hypParams = EmbeddingHypParams device wordDim wordNum
 
     -- extractWordLst textFilePath wordToReadInFile wordNum
@@ -117,31 +125,36 @@ main = do
 
     model <- loadParams hypParams modelPath
 
-    -- let trainingTextWords = take wordToReadInFile $ preprocess trainingText
     -- putStrLn "grabbing training data..."
-    -- trainingData <- getTrainingData wordlst (take 10000 $ packOfFollowingWords trainingTextWords 1)
+    -- let trainingTextWords = take wordToReadInFile $ preprocess trainingText
+    -- (trainingData, duration) <- chronometer $ getTrainingData wordlst (take 10000 $ packOfFollowingWords trainingTextWords 1)
+    -- putStrLn $ "Time taken to generate training data: " ++ show duration ++ " seconds"
+    -- putStrLn "training data grabbed"
     -- initModel <- sample hypParams
     -- model <- trainModel initModel trainingData epochNb
 
-    -- let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "i'm") word2vecDict 
-    let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "i'm") wordlst
-    let output = embLayer model input
-    let outputWords = reverse $ sortBySnd $ zip wordlst $ (asValue output :: [Float])
-    print $ take 10 outputWords
+    -- -- let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "i'm") word2vecDict 
+    -- let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "i'm") wordlst
+    -- let output = embLayer model input
+    -- let outputWords = reverse $ sortBySnd $ zip wordlst $ (asValue output :: [Float])
+    -- print $ take 10 outputWords
 
     let word2vec = zip wordlst $ (asValue (toDependent $ weight $ w2 model) :: [[Float]])
     let word2vecDict = M.fromList word2vec
 
-    -- print word2vec
+    -- -- print word2vec
 
-    let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "software") word2vecDict 
-    let res = asValue word :: [Float]
+    -- let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "software") word2vecDict 
+    -- let res = asValue word :: [Float]
 
-    -- let mostSim = take 10 $ reverse $ sortBySnd $ map (\(word, vec) -> (word, similarityCosine res vec)) word2vec
-    print $ mostSimilar "sure" word2vec word2vecDict
+    -- -- let mostSim = take 10 $ reverse $ sortBySnd $ map (\(word, vec) -> (word, similarityCosine res vec)) word2vec
+    print $ mostSimilar "game" word2vec word2vecDict
 
     return ()
 
+
+
+-- | Find the most similar words to a given word
 mostSimilar :: String -> [(B.ByteString, [Float])] -> M.Map B.ByteString [Float] -> [(B.ByteString, Float)]
 mostSimilar word word2vec word2vecDict = 
     case M.lookup lazyWord word2vecDict of
@@ -161,7 +174,6 @@ trainModel model trainingData epochNb = do
     saveParams trainedModel modelPath
     return trainedModel
 
-
 dotProduct :: [Float] -> [Float] -> Float
 dotProduct x y = sum $ zipWith (*) x y
 
@@ -171,13 +183,10 @@ magnitude x = sqrt $ sum $ map (^2) x
 similarityCosine :: [Float] -> [Float] -> Float
 similarityCosine x y = dotProduct x y / (magnitude x * magnitude y)
 
-wordToIndex :: B.ByteString -> [B.ByteString] -> Int
-wordToIndex word wordlst = if length indexs > 0 then head indexs else -1
-    where indexs = (catMaybes [elemIndex word wordlst])
-
 wordToOneHot :: B.ByteString -> [B.ByteString] -> Tensor
-wordToOneHot word wordlst = if index >= 0 then oneAtPos index (length wordlst) else zeros' [length wordlst]
-    where index = wordToIndex word wordlst
+wordToOneHot word wordlst = if index < (length wordlst) -1 then oneAtPos index (length wordlst) else zeros' [length wordlst]
+    where wordToIndex = wordToIndexFactory wordlst 
+          index = wordToIndex word
 
 -- your text data (try small data first)
 textFilePath = "data/textProc/review-texts.txt"
@@ -225,9 +234,9 @@ packOfFollowingWords (x:xs) n = if length xs > (n+1) then ([p2], p1) : ([p3], p1
 -- Convert data into training data
 getTrainingData :: [B.ByteString] -> [([B.ByteString], B.ByteString)] -> IO [(Tensor, Tensor)]
 getTrainingData wordlst dataPack = do 
-    let input x = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (idxLst x)
-        idxLst x = catMaybes $ map (`elemIndex` wordlst) x
-        output y = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (catMaybes [elemIndex y wordlst])
+    let wordToIndex = wordToIndexFactory wordlst 
+        input x = asTensor $ concat $ map (\word -> asValue (wordToOneHot word wordlst) :: [Float]) x
+        output y = wordToOneHot y wordlst
         res = map (\(x, y) -> (input x, output y)) dataPack
         filteredRes = filter (\(x, y) -> (length (asValue x :: [Float]) > 0) && (length (asValue y :: [Float]) > 0)) res
     return filteredRes

@@ -36,6 +36,7 @@ dependencies:
 - text
 - utf8-string
 - containers
+- time
 ghc-options:
 - -Wall
 - -Wcompat

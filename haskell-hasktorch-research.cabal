@@ -24,6 +24,7 @@ library
       Functional
       ReadImage
       Utils
+      Word2Vec
   other-modules:
       Paths_haskell_hasktorch_research
   hs-source-dirs:
@@ -48,6 +49,7 @@ library
     , split
     , stringsearch
     , text
+    , time
     , utf8-string
   default-language: Haskell2010
 
@@ -78,6 +80,7 @@ executable camera
     , split
     , stringsearch
     , text
+    , time
     , utf8-string
   default-language: Haskell2010
 
@@ -109,6 +112,7 @@ executable cifar
     , split
     , stringsearch
     , text
+    , time
     , utf8-string
   default-language: Haskell2010
 
@@ -139,6 +143,7 @@ executable linear
     , split
     , stringsearch
     , text
+    , time
     , utf8-string
   default-language: Haskell2010
 
@@ -169,6 +174,7 @@ executable textProc
     , split
     , stringsearch
     , text
+    , time
     , utf8-string
   default-language: Haskell2010
 
@@ -199,6 +205,7 @@ executable titanic
     , split
     , stringsearch
     , text
+    , time
     , utf8-string
   default-language: Haskell2010
 
@@ -230,6 +237,7 @@ executable weather
     , split
     , stringsearch
     , text
+    , time
     , utf8-string
   default-language: Haskell2010
 
@@ -260,5 +268,6 @@ executable xor
     , split
     , stringsearch
     , text
+    , time
     , utf8-string
   default-language: Haskell2010

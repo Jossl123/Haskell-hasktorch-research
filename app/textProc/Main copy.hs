@@ -1,15 +1,42 @@
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE StandaloneDeriving    #-}
+-- PLEASE DOWNLOAD THE REQUIRED DATAS IF YOU WANT TO RUN THIS PROGRAM 
+-- https://www.kaggle.com/datasets/swaroopkml/cifar10-pngs-in-folders?resource=download
+{-# LANGUAGE DeriveGeneric, RecordWildCards, MultiParamTypeClasses,FlexibleInstances  #-}
 
-module Main
-    ( main
-    ) where
+module Main where
+
+import Functional           (sortBySnd)
+import Torch.Model.Utils    (accuracy, f1, precision, recall, macroAvg, weightedAvg)
+import Torch.Tensor.Util    (indexOfMax, oneHot')
+import qualified Data.Text as T
+
+import Graphics.Matplotlib
+import System.Random
+import Data.List.Split
+import Data.List (elemIndex,foldl')
+import Data.Maybe (fromJust)
+import Torch.Optim          (foldLoop)
+import ReadImage            (imageToRGBList)
+
+import Control.Monad        (when,forM) --base
+import Data.List            (sortBy, maximumBy)
+import Torch.Functional      (matmul)
+
+import Torch.Tensor         (asTensor, asValue, Tensor(..), select)
+import Torch.TensorFactories (zeros')
+import Torch.Functional     (mseLoss, binaryCrossEntropyLoss', Dim(..), exp, sumAll, div, squeezeAll, softmax, transpose2D)
+import Torch.NN             (Parameterized,Randomizable,sample,flattenParameters)
+import Torch.Optim          (GD(..), Adam(..), mkAdam, runStep, foldLoop)
+import Torch.Device         (Device(..),DeviceType(..))
+import Torch.Train          (update, saveParams, loadParams)
+import Torch.Autograd       (toDependent)
+import Torch.Layer.MLP      (MLPHypParams(..), MLPParams(..), ActName(..), mlpLayer)
+import Torch.Layer.Linear   (LinearHypParams(..),LinearParams(..),linearLayer)
+import ML.Exp.Chart         (drawLearningCurve,drawConfusionMatrix ) --nlp-tools
+import Torch.Layer.NonLinear (ActName(..),decodeAct)
+import Torch.Tensor.TensorFactories (oneAtPos)
 
 import           Codec.Binary.UTF8.String (encode)
+import Data.Maybe (catMaybes)
 import qualified Data.ByteString.Lazy     as B
 import           Data.Char                (toLower)
 import           Data.List                (nub)
@@ -19,19 +46,138 @@ import           Data.Text.Lazy.Encoding  as TL (decodeUtf8, encodeUtf8)
 import           Data.Word                (Word8)
 import           GHC.Generics
 
-import           Torch.Autograd           (makeIndependent, toDependent)
-import           Torch.Functional         (embedding', mseLoss)
-import           Torch.NN                 (Parameter, Parameterized (..))
-import           Torch.Serialize          (loadParams, saveParams)
-import           Torch.Tensor             (Tensor, asTensor, asValue)
-import           Torch.Optim              (GD(..), Adam(..), mkAdam, runStep, foldLoop)
-import           Torch.TensorFactories    (eye', zeros')
-import           Torch.Device             (Device(..), DeviceType(..))
-import           Torch.NN                 (sample)
-import           Torch.Layer.MLP          (MLPHypParams(..), MLPParams(..), ActName(..), mlpLayer)
+import Debug.Trace          (trace)
 
-import           Functional               (sortBySnd)
 
+-- | Example:
+-- | toPairwise [(4,"a"),(5,"b"),(6,"c")] = [((4,"a"),(5,"b")),((5,"b"),(6,"c"))]
+toPairwise :: [a] -> [(a,a)]
+toPairwise [] = []
+toPairwise [_] = []
+toPairwise (x : (y : xs)) =
+    scanl shift (x, y) xs
+    where
+        shift (_, p) q = (p, q)
+
+data EmbeddingHypParams = EmbeddingHypParams {
+    dev :: Device,
+    wordDim :: Int,
+    wordNum :: Int
+    } deriving (Eq, Show)
+
+-- | DeriveGeneric Pragmaが必要
+data EmbeddingParams = EmbeddingParams {
+    w1 :: LinearParams,
+    w2 :: LinearParams
+    } deriving (Generic)
+
+instance Parameterized EmbeddingParams
+
+instance Randomizable EmbeddingHypParams EmbeddingParams where
+    sample EmbeddingHypParams{..} = do
+        w1 <- sample $ LinearHypParams dev False wordNum wordDim
+        w2 <- sample $ LinearHypParams dev False wordDim wordNum
+        return $ EmbeddingParams w1 w2
+        
+-- as the input is a zero array with one value at 1, we can only mutliply the weight matrix linked to the 1 value
+-- embLayerOpti :: EmbeddingParams -> Tensor -> Tensor 
+-- embLayerOpti EmbeddingParams{..} input = softmax (Dim 0) $ l2
+--     where
+--         index = indexOfMax ( asValue input :: [Float] )
+--         l1 = select 1 index (toDependent $ weight w1)
+--         l2 = linearLayer w2 l1
+
+embLayer :: EmbeddingParams -> Tensor -> Tensor 
+embLayer EmbeddingParams{..} input = softmax (Dim 0) $ l2
+    where l1 = linearLayer w1 input
+          l2 = linearLayer w2 l1
+
+
+loss :: EmbeddingParams -> (Tensor, Tensor) -> Tensor
+loss model (input, output) = let y = embLayer model input
+                             in mseLoss y output
+
+-- forwardOpti :: MLPParams -> Tensor -> Tensor -- input is always a zero tensor with a value of 1 somewhere
+-- forwardOpti model input = 
+--     let word2vec = zip wordlst $ (asValue (toDependent $ weight $ fst $ head $ tail $ layers model) :: [[Float]])
+
+
+main :: IO ()
+main = do
+    let device = Device CPU 0
+        epochNb = 20
+        wordDim = 16
+        wordNum = 10000
+        wordToReadInFile = 100000
+        hypParams = EmbeddingHypParams device wordDim wordNum
+
+    -- extractWordLst textFilePath wordToReadInFile wordNum
+    wordlst <- loadWordLst wordLstPath
+    trainingText <- B.readFile textFilePath
+
+    model <- loadParams hypParams modelPath
+
+    putStrLn "grabbing training data..."
+    let trainingTextWords = take wordToReadInFile $ preprocess trainingText
+    trainingData <- getTrainingData wordlst (take 1000 $ packOfFollowingWords trainingTextWords 1)
+    putStrLn "training data grabbed"
+    -- initModel <- sample hypParams
+    -- model <- trainModel initModel trainingData epochNb
+
+    -- let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "i'm") word2vecDict 
+    let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "i'm") wordlst
+    let output = embLayer model input
+    let outputWords = reverse $ sortBySnd $ zip wordlst $ (asValue output :: [Float])
+    print $ take 10 outputWords
+
+    let word2vec = zip wordlst $ (asValue (toDependent $ weight $ w2 model) :: [[Float]])
+    let word2vecDict = M.fromList word2vec
+
+    -- print word2vec
+
+    let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "software") word2vecDict 
+    let res = asValue word :: [Float]
+
+    -- let mostSim = take 10 $ reverse $ sortBySnd $ map (\(word, vec) -> (word, similarityCosine res vec)) word2vec
+    print $ mostSimilar "sure" word2vec word2vecDict
+
+    return ()
+
+mostSimilar :: String -> [(B.ByteString, [Float])] -> M.Map B.ByteString [Float] -> [(B.ByteString, Float)]
+mostSimilar word word2vec word2vecDict = 
+    case M.lookup lazyWord word2vecDict of
+        Nothing -> []
+        Just vecWord -> take 10 $ reverse $ sortBySnd $ map (\(w, vec) -> (w, similarityCosine vecWord vec)) word2vec
+    where lazyWord = TL.encodeUtf8 $ TL.pack word
+
+trainModel :: EmbeddingParams -> [(Tensor, Tensor)] -> Int -> IO EmbeddingParams
+trainModel model trainingData epochNb = do
+    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters model)
+    (trainedModel, _, losses) <- foldLoop (model, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
+        let epochLoss = sum (map (loss model) trainingData)
+        let lossValue = asValue epochLoss :: Float
+        putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
+        (trainedModel, nOpt) <- runStep model opt epochLoss 0.1
+        pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
+    saveParams trainedModel modelPath
+    return trainedModel
+
+dotProduct :: [Float] -> [Float] -> Float
+dotProduct x y = sum $ zipWith (*) x y
+
+magnitude :: [Float] -> Float
+magnitude x = sqrt $ sum $ map (^2) x
+
+similarityCosine :: [Float] -> [Float] -> Float
+similarityCosine x y = dotProduct x y / (magnitude x * magnitude y)
+
+wordToIndex :: B.ByteString -> [B.ByteString] -> Int
+wordToIndex word wordlst = if length indexs > 0 then head indexs else -1
+    where indexs = (catMaybes [elemIndex word wordlst])
+
+wordToOneHot :: B.ByteString -> [B.ByteString] -> Tensor
+wordToOneHot word wordlst = if index >= 0 then oneAtPos index (length wordlst) else zeros' [length wordlst]
+    where index = wordToIndex word wordlst
 
 -- your text data (try small data first)
 textFilePath = "data/textProc/review-texts.txt"
@@ -40,24 +186,12 @@ modelPath = "data/textProc/sample_embedding.params"
 
 wordLstPath = "data/textProc/sample_wordlst.txt"
 
-data EmbeddingSpec =
-    EmbeddingSpec
-        { wordNum :: Int -- the number of words
-        , wordDim :: Int -- the dimention of word embeddings
-        }
-    deriving (Show, Eq, Generic)
-
-data Embedding =
-    Embedding
-        { wordEmbedding :: Parameter
-        }
-    deriving (Show, Generic, Parameterized)
 
 isUnncessaryChar :: Word8 -> Bool
 isUnncessaryChar str =
     str `elem`
     (map (head . encode))
-        [".", "!", "<", ">", "/", "\"", "-", "(", ")", ":", ";", ",", "?", "@"]
+        [".", "!", "<", ">", "/", "\"", "(", ")", ":", ";", ",", "-", "?", "@", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 preprocess ::
      B.ByteString -- input
@@ -77,67 +211,27 @@ wordToIndexFactory ::
 wordToIndexFactory wordlst wrd =
     M.findWithDefault (length wordlst) wrd (M.fromList (zip wordlst [0 ..]))
 
-toyEmbedding :: EmbeddingSpec -> Tensor -- embedding
-toyEmbedding EmbeddingSpec {..} = eye' wordNum wordDim
-
 count :: Eq a => a -> [a] -> Int
 count x = length . filter (x ==)
 
-loss :: MLPParams -> (Tensor, Tensor) -> Tensor
-loss model (input, output) = let y = mlpLayer model input
-                             in mseLoss y output
-
-packOfFollowingWords :: [B.ByteString] -> Int -> [([B.ByteString], B.ByteString)]
-packOfFollowingWords [] _ = [] 
+packOfFollowingWords :: [B.ByteString] -> Int -> [([B.ByteString], B.ByteString)] -- check if length of wordlst is greater than n
+packOfFollowingWords [] _ = []
 packOfFollowingWords [x] _ = []
-packOfFollowingWords (x:xs) n = (take n $ tail xs , head xs) : packOfFollowingWords xs n 
+packOfFollowingWords (x:xs) n = if length xs > (n+1) then ([p2], p1) : ([p3], p1) : ([p1], p2) : ([p1], p3) : packOfFollowingWords xs n else []
+    where p1 = head xs
+          p2 = head $ tail xs
+          p3 = head $ tail $ tail xs
 
-
-getTrainingData :: ([Int] -> Tensor) -> (B.ByteString -> Int) -> [([B.ByteString], B.ByteString)] -> [(Tensor, Tensor)]
-getTrainingData embdFunc wordToIndex dataPack = map (\(x, y) -> (flatTensor $ input x, flatTensor $ output y)) dataPack
-    where input x = embdFunc (map wordToIndex x)
-          output x  = embdFunc [wordToIndex x]
-          flatTensor x = asTensor $ concat $ (asValue x :: [[Float]])
-
-
-
-embd :: Embedding -> [Int] -> Tensor
-embd loadedEmb idxes = embedding' (toDependent $ wordEmbedding loadedEmb) (asTensor idxes)
-
-main :: IO ()
-main = do
-    extractWordLst textFilePath
-    wordlst <- loadWordLst wordLstPath
-    let wordToIndex = wordToIndexFactory wordlst
-        device = Device CPU 0
-        epochNb = 7
-        hypParams = MLPHypParams device 20 [(5, Id), (10, Softmax)] -- Id | Sigmoid | Tanh | Relu | Elu | Selu
-
-    -- extractWordLst textFilePath
-    -- load params
-    initWordEmb <- makeIndependent $ zeros' [1]
-    let initEmb = Embedding {wordEmbedding = initWordEmb}
-    loadedEmb <- loadParams initEmb modelPath
-    -- let sampleTxt = B.pack $ encode "my i"
-    -- --     -- convert word to index
-    --     idxes = map wordToIndex (preprocess sampleTxt)
-    -- --     -- convert to embedding
-    --     embTxt = embedding' (toDependent $ wordEmbedding loadedEmb) (asTensor idxes)
-
-    let trainingData = getTrainingData (embd loadedEmb) wordToIndex (packOfFollowingWords wordlst 2)
-    print trainingData
-    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters loadedEmb)
-    (trainedModel, nOpt) <- runStep loadedEmb optimizer 2.3 0.002
-
-    -- initModel <- sample hypParams
-    -- putStrLn "start training"
-    -- (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
-    --     let epochLoss = sum (map (loss model) trainingData)
-    --     let lossValue = asValue epochLoss :: Float
-    --     putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
-    --     (trainedModel, nOpt) <- runStep model opt epochLoss 0.002
-    --     pure (trainedModel, nOpt, losses ++ [lossValue])
-    return ()
+-- Convert data into training data
+getTrainingData :: [B.ByteString] -> [([B.ByteString], B.ByteString)] -> IO [(Tensor, Tensor)]
+getTrainingData wordlst dataPack = do 
+    let wordToIndex = wordToIndexFactory wordlst 
+        input x = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (idxLst x)
+        idxLst x = map wordToIndex x
+        output y = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (catMaybes [elemIndex y wordlst])
+        res = map (\(x, y) -> (input x, output y)) dataPack
+        filteredRes = filter (\(x, y) -> (length (asValue x :: [Float]) > 0) && (length (asValue y :: [Float]) > 0)) res
+    return filteredRes
 
 loadWordLst :: FilePath -> IO [B.ByteString]
 loadWordLst wordLstPath = do
@@ -145,26 +239,19 @@ loadWordLst wordLstPath = do
     let wordlst = B.split (head $ encode "\n") texts
     return wordlst
 
-extractWordLst :: FilePath -> IO ()
-extractWordLst textFilePath = do
+extractWordLst :: FilePath -> Int -> Int -> IO ()
+extractWordLst textFilePath wordsToReadInFile wordNbToGrab = do
     -- load text file
     texts <- B.readFile textFilePath
     putStrLn "loaded text file"
         -- create word lst (unique)
-    let wordL = take 1000 $ preprocess texts
+    let wordL = take wordsToReadInFile $ preprocess texts
         wordFrequent = [(word, count word wordL) | word <- (nub $ wordL)]
         wordFrequentSorted = reverse $ sortBySnd wordFrequent
-        wordFrequentTop = take 10 wordFrequentSorted
+        wordFrequentTop = take wordNbToGrab wordFrequentSorted
         wordlst = [word | (word, _) <- wordFrequentTop]
         wordToIndex = wordToIndexFactory wordlst
     putStrLn "created word list"
-        -- create embedding(wordDim × wordNum)
-    let embsddingSpec =
-            EmbeddingSpec {wordNum = length wordlst, wordDim = 10}
-    wordEmb <- makeIndependent $ toyEmbedding embsddingSpec
-    let emb = Embedding {wordEmbedding = wordEmb}
-        -- save params
-    saveParams emb modelPath
         
     -- save word list
     B.writeFile wordLstPath (B.intercalate (B.pack $ encode "\n") wordlst)
