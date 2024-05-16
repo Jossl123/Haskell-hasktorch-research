@@ -22,7 +22,7 @@ import Control.Monad        (when,forM) --base
 import Data.List            (sortBy, maximumBy)
 import Torch.Functional      (matmul)
 
-import Torch.Tensor         (asTensor, asValue, Tensor(..), select)
+import Torch.Tensor         (asTensor, asValue, Tensor(..), select, shape, toInt)
 import Torch.TensorFactories (zeros')
 import Torch.Functional     (mseLoss, binaryCrossEntropyLoss', Dim(..), exp, sumAll, div, squeezeAll, softmax, transpose2D)
 import Torch.NN             (Parameterized,Randomizable,sample,flattenParameters)
@@ -125,12 +125,14 @@ main = do
 
     model <- loadParams hypParams modelPath
 
-    -- putStrLn "grabbing training data..."
-    -- let trainingTextWords = take wordToReadInFile $ preprocess trainingText
-    -- (trainingData, duration) <- chronometer $ getTrainingData wordlst (take 10000 $ packOfFollowingWords trainingTextWords 1)
-    -- putStrLn $ "Time taken to generate training data: " ++ show duration ++ " seconds"
-    -- putStrLn "training data grabbed"
-    -- initModel <- sample hypParams
+    putStrLn "grabbing training data..."
+    let trainingTextWords = take wordToReadInFile $ preprocess trainingText
+    (trainingData, duration) <- chronometer $ getTrainingData wordlst (take 10000 $ packOfFollowingWords trainingTextWords 1)
+    putStrLn $ "grabbed training data in " ++ show duration ++ " seconds" ++ show (length trainingData)
+    -- let trainingData = take 10 $ packOfFollowingWords trainingTextWords 1
+    -- B.writeFile "data/textProc/training_data.txt" (B.intercalate (B.pack $ encode "\n") trainingData)
+
+    initModel <- sample hypParams
     -- model <- trainModel initModel trainingData epochNb
 
     -- -- let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "i'm") word2vecDict 
@@ -223,22 +225,22 @@ wordToIndexFactory wordlst wrd =
 count :: Eq a => a -> [a] -> Int
 count x = length . filter (x ==)
 
-packOfFollowingWords :: [B.ByteString] -> Int -> [([B.ByteString], B.ByteString)] -- check if length of wordlst is greater than n
+packOfFollowingWords :: [B.ByteString] -> Int -> [(B.ByteString, B.ByteString)] -- check if length of wordlst is greater than n
 packOfFollowingWords [] _ = []
 packOfFollowingWords [x] _ = []
-packOfFollowingWords (x:xs) n = if length xs > (n+1) then ([p2], p1) : ([p3], p1) : ([p1], p2) : ([p1], p3) : packOfFollowingWords xs n else []
+packOfFollowingWords (x:xs) n = if length xs > (n+1) then (p2, p1) : (p3, p1) : (p1, p2) : (p1, p3) : packOfFollowingWords xs n else []
     where p1 = head xs
           p2 = head $ tail xs
           p3 = head $ tail $ tail xs
 
 -- Convert data into training data
-getTrainingData :: [B.ByteString] -> [([B.ByteString], B.ByteString)] -> IO [(Tensor, Tensor)]
+getTrainingData :: [B.ByteString] -> [(B.ByteString, B.ByteString)] -> IO [(Tensor, Tensor)]
 getTrainingData wordlst dataPack = do 
     let wordToIndex = wordToIndexFactory wordlst 
-        input x = asTensor $ concat $ map (\word -> asValue (wordToOneHot word wordlst) :: [Float]) x
+        input x = wordToOneHot x wordlst
         output y = wordToOneHot y wordlst
         res = map (\(x, y) -> (input x, output y)) dataPack
-        filteredRes = filter (\(x, y) -> (length (asValue x :: [Float]) > 0) && (length (asValue y :: [Float]) > 0)) res
+        filteredRes = filter (\(x, y) -> ((toInt $ sumAll x) > 0) && (toInt $ sumAll y) > 0) res
     return filteredRes
 
 loadWordLst :: FilePath -> IO [B.ByteString]
