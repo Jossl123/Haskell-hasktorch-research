@@ -19,10 +19,11 @@ import ReadImage            (imageToRGBList)
 
 import Control.Monad        (when,forM) --base
 import Data.List            (sortBy, maximumBy)
+import Torch.Functional      (matmul)
 
-import Torch.Tensor         (asTensor, asValue, Tensor(..))
+import Torch.Tensor         (asTensor, asValue, Tensor(..), select)
 import Torch.TensorFactories (zeros')
-import Torch.Functional     (mseLoss, Dim(..), exp, sumAll, div, squeezeAll, softmax)
+import Torch.Functional     (mseLoss, binaryCrossEntropyLoss', Dim(..), exp, sumAll, div, squeezeAll, softmax, transpose2D)
 import Torch.NN             (Parameterized,Randomizable,sample,flattenParameters)
 import Torch.Optim          (GD(..), Adam(..), mkAdam, runStep, foldLoop)
 import Torch.Device         (Device(..),DeviceType(..))
@@ -45,6 +46,8 @@ import           Data.Text.Lazy.Encoding  as TL (decodeUtf8, encodeUtf8)
 import           Data.Word                (Word8)
 import           GHC.Generics
 
+import Debug.Trace          (trace)
+
 
 -- | Example:
 -- | toPairwise [(4,"a"),(5,"b"),(6,"c")] = [((4,"a"),(5,"b")),((5,"b"),(6,"c"))]
@@ -52,9 +55,10 @@ toPairwise :: [a] -> [(a,a)]
 toPairwise [] = []
 toPairwise [_] = []
 toPairwise (x : (y : xs)) =
-  scanl shift (x, y) xs
-  where
-    shift (_, p) q = (p, q)
+    scanl shift (x, y) xs
+    where
+        shift (_, p) q = (p, q)
+
 data EmbeddingHypParams = EmbeddingHypParams {
     dev :: Device,
     wordDim :: Int,
@@ -75,6 +79,14 @@ instance Randomizable EmbeddingHypParams EmbeddingParams where
         w2 <- sample $ LinearHypParams dev False wordDim wordNum
         return $ EmbeddingParams w1 w2
         
+-- as the input is a zero array with one value at 1, we can only mutliply the weight matrix linked to the 1 value
+-- embLayerOpti :: EmbeddingParams -> Tensor -> Tensor 
+-- embLayerOpti EmbeddingParams{..} input = softmax (Dim 0) $ l2
+--     where
+--         index = indexOfMax ( asValue input :: [Float] )
+--         l1 = select 1 index (toDependent $ weight w1)
+--         l2 = linearLayer w2 l1
+
 embLayer :: EmbeddingParams -> Tensor -> Tensor 
 embLayer EmbeddingParams{..} input = softmax (Dim 0) $ l2
     where l1 = linearLayer w1 input
@@ -93,55 +105,62 @@ loss model (input, output) = let y = embLayer model input
 main :: IO ()
 main = do
     let device = Device CPU 0
-        epochNb = 30
-        wordDim = 32
-        wordNum = 10000
-        wordToReadInFile = 1000000
+        epochNb = 300
+        wordDim = 16
+        wordNum = 1000
+        wordToReadInFile = 100000
         hypParams = EmbeddingHypParams device wordDim wordNum
 
     -- extractWordLst textFilePath wordToReadInFile wordNum
     wordlst <- loadWordLst wordLstPath
     trainingText <- B.readFile textFilePath
 
-    initModel <- sample hypParams
+    model <- loadParams hypParams modelPath
 
-    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters initModel)
-        trainingTextWords = take wordToReadInFile $ preprocess trainingText
-    putStrLn "grabbing training data..."
-    trainingData <- getTrainingData wordlst (packOfFollowingWords trainingTextWords 1)
-    putStrLn "start training"
-    (trainedModel, _, losses) <- foldLoop (initModel, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
+    -- let trainingTextWords = take wordToReadInFile $ preprocess trainingText
+    -- putStrLn "grabbing training data..."
+    -- trainingData <- getTrainingData wordlst (take 10000 $ packOfFollowingWords trainingTextWords 1)
+    -- initModel <- sample hypParams
+    -- model <- trainModel initModel trainingData epochNb
+
+    -- let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "i'm") word2vecDict 
+    let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "i'm") wordlst
+    let output = embLayer model input
+    let outputWords = reverse $ sortBySnd $ zip wordlst $ (asValue output :: [Float])
+    print $ take 10 outputWords
+
+    let word2vec = zip wordlst $ (asValue (toDependent $ weight $ w2 model) :: [[Float]])
+    let word2vecDict = M.fromList word2vec
+
+    -- print word2vec
+
+    let word = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "software") word2vecDict 
+    let res = asValue word :: [Float]
+
+    -- let mostSim = take 10 $ reverse $ sortBySnd $ map (\(word, vec) -> (word, similarityCosine res vec)) word2vec
+    print $ mostSimilar "sure" word2vec word2vecDict
+
+    return ()
+
+mostSimilar :: String -> [(B.ByteString, [Float])] -> M.Map B.ByteString [Float] -> [(B.ByteString, Float)]
+mostSimilar word word2vec word2vecDict = 
+    case M.lookup lazyWord word2vecDict of
+        Nothing -> []
+        Just vecWord -> take 10 $ reverse $ sortBySnd $ map (\(w, vec) -> (w, similarityCosine vecWord vec)) word2vec
+    where lazyWord = TL.encodeUtf8 $ TL.pack word
+
+trainModel :: EmbeddingParams -> [(Tensor, Tensor)] -> Int -> IO EmbeddingParams
+trainModel model trainingData epochNb = do
+    let optimizer = mkAdam 0 0.9 0.999 (flattenParameters model)
+    (trainedModel, _, losses) <- foldLoop (model, optimizer, []) epochNb $ \(model, opt, losses) i -> do 
         let epochLoss = sum (map (loss model) trainingData)
         let lossValue = asValue epochLoss :: Float
         putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue 
         (trainedModel, nOpt) <- runStep model opt epochLoss 0.1
         pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it 
     saveParams trainedModel modelPath
+    return trainedModel
 
-
-    model <- loadParams hypParams modelPath
-
-    let input = wordToOneHot (TL.encodeUtf8 $ TL.pack "device") wordlst
-    -- print input
-    -- print $ mlpLayer initModel input
-    let output = embLayer initModel input
-    print output
-    -- let outputWords = zip wordlst $ (asValue output :: [Float])
-
-
-    -- let word2vec = zip wordlst $ (asValue (toDependent $ weight $ fst $ head $ tail $ layers model) :: [[Float]])
-    -- let word2vecDict = M.fromList word2vec
-    -- let me = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "me") word2vecDict 
-    -- let this = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "📺") word2vecDict 
-    -- let you = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "you") word2vecDict 
-    
-    -- let res = asValue (this) :: [Float]
-
-    -- let mostSim = take 10 $ reverse $ sortBySnd $ map (\(word, vec) -> (word, similarityCosine res vec)) word2vec
-    -- print mostSim
-    -- print $ take 10 $ reverse $ sortBySnd outputWords
-
-    return ()
 
 dotProduct :: [Float] -> [Float] -> Float
 dotProduct x y = sum $ zipWith (*) x y
@@ -198,7 +217,10 @@ count x = length . filter (x ==)
 packOfFollowingWords :: [B.ByteString] -> Int -> [([B.ByteString], B.ByteString)] -- check if length of wordlst is greater than n
 packOfFollowingWords [] _ = []
 packOfFollowingWords [x] _ = []
-packOfFollowingWords (x:xs) n = if length xs > n then (take n $ tail xs , head xs) : packOfFollowingWords xs n else []
+packOfFollowingWords (x:xs) n = if length xs > (n+1) then ([p2], p1) : ([p3], p1) : ([p1], p2) : ([p1], p3) : packOfFollowingWords xs n else []
+    where p1 = head xs
+          p2 = head $ tail xs
+          p3 = head $ tail $ tail xs
 
 -- Convert data into training data
 getTrainingData :: [B.ByteString] -> [([B.ByteString], B.ByteString)] -> IO [(Tensor, Tensor)]
@@ -208,7 +230,7 @@ getTrainingData wordlst dataPack = do
         output y = asTensor $ concat $ map (\word -> asValue (oneAtPos word (length wordlst)) :: [Float]) (catMaybes [elemIndex y wordlst])
         res = map (\(x, y) -> (input x, output y)) dataPack
         filteredRes = filter (\(x, y) -> (length (asValue x :: [Float]) > 0) && (length (asValue y :: [Float]) > 0)) res
-    return $ take 10000 $ filteredRes
+    return filteredRes
 
 loadWordLst :: FilePath -> IO [B.ByteString]
 loadWordLst wordLstPath = do
