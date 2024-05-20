@@ -23,6 +23,7 @@ library
   exposed-modules:
       Functional
       ReadImage
+      TextTreatement
       Utils
       Word2Vec
   other-modules:

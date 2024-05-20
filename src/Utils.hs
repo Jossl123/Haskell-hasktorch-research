@@ -1,15 +1,11 @@
-module Utils (parseCSVOrError) where
+module Utils (chronometer) where
 
-import Text.CSV
-import System.Directory (getCurrentDirectory)
+import           Data.Time.Clock
 
-
--- Function to parse CSV file or throw an error
-parseCSVOrError :: String -> IO CSV
-parseCSVOrError filePath = do
-    currentDir <- getCurrentDirectory
-    csv <- parseCSVFromFile (currentDir ++ "/" ++ filePath)
-    case csv of
-        Right csvData -> return csvData
-        Left err -> error $ "Error parsing CSV: " ++ show err
-
+chronometer :: IO a -> IO (a, Double)
+chronometer action = do
+    start <- getCurrentTime
+    result <- action
+    end <- getCurrentTime
+    let diff = realToFrac $ diffUTCTime end start
+    return (result, diff)

@@ -40,3 +40,16 @@ Testing on 1000 most used words : looking at the most similars words for "game" 
 [("game",0.9999999),("i",0.8042298),("fun",0.7797622),("what",0.7150335),("have",0.6954251),("this",0.67785543),("would",0.66231537),("one",0.6454064),("guess",0.64173263),("good",0.62614894)]
 
 creating the training set is long, it takes 4 sec for 1000 elements and 40 for 10000
+
+
+extracting word list : 
+optimization have been made to extract the word list, going froms few hours for 10000 words to 11 sec
+```
+-- 10 min for 10000 lines
+count :: Eq a => a -> [a] -> Int
+count x = length . filter (x ==)
+
+-- 2 sec for 10000 lines
+countWords :: [B.ByteString] -> M.Map B.ByteString Int
+countWords = foldl' (\acc word -> M.insertWith (+) word 1 acc) M.empty
+```
