@@ -36,7 +36,7 @@ data EmbeddingParams =
         { w1 :: LinearParams
         , w2 :: LinearParams
         }
-    deriving (Generic)
+    deriving (Show, Generic)
 
 instance Parameterized EmbeddingParams
 

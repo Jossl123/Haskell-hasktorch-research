@@ -53,3 +53,5 @@ count x = length . filter (x ==)
 countWords :: [B.ByteString] -> M.Map B.ByteString Int
 countWords = foldl' (\acc word -> M.insertWith (+) word 1 acc) M.empty
 ```
+
+try with unboxed data type

@@ -36,6 +36,7 @@ dependencies:
 - text
 - utf8-string
 - containers
+- aeson
 - time
 ghc-options:
 - -Wall
@@ -91,5 +92,10 @@ executables:
   textProc:
     main: Main.hs
     source-dirs: app/textProc
+    ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
+    dependencies: haskell-hasktorch-research
+  amazon:
+    main: Main.hs
+    source-dirs: app/amazon
     ghc-options: [-threaded, -rtsopts, -with-rtsopts=-N]
     dependencies: haskell-hasktorch-research
