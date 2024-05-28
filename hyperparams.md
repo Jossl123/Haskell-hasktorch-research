@@ -55,3 +55,21 @@ countWords = foldl' (\acc word -> M.insertWith (+) word 1 acc) M.empty
 ```
 
 try with unboxed data type
+
+
+
+In case you have this error "Exception: Differentiated tensor not require grad; type: std::runtime_error
+textProc: CppStdException e "Differentiated tensor not require grad"(Just "std::runtime_error")"
+
+when trying to update the model for example by backward prop, it means that the tensors are independent and you need to first forward the model, as the forward function convert them to dependent and so the gradient will be calculable.
+
+Strange thing occurs also : 
+```
+-- error
+let !epochLoss = loss model data
+(t, o) <- runStep model GD (asTensor [200::Float]) 0.1
+
+-- no error  
+let epochLoss = loss model data
+(t, o) <- runStep model GD epochLoss 0.1
+```

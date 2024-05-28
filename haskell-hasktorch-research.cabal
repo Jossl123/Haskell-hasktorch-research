@@ -249,6 +249,38 @@ executable titanic
     , utf8-string
   default-language: Haskell2010
 
+executable trading
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/trading
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , containers
+    , csv
+    , directory
+    , haskell-hasktorch-research
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matplotlib
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+    , split
+    , stringsearch
+    , text
+    , time
+    , utf8-string
+  default-language: Haskell2010
+
 executable weather
   main-is: Main.hs
   other-modules:
