@@ -32,3 +32,4 @@ ideas.md
 app/cifar/models/*
 data/amazon
 data/titanic
+data/trading
