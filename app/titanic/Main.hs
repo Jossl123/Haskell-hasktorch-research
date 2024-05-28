@@ -4,7 +4,7 @@ import Text.CSV
 import Data.Csv
 import qualified Data.ByteString.Lazy as BL
 
-import Utils
+import TextTreatement
 import Control.Monad (forM_)
 
 -- import Debug.Trace

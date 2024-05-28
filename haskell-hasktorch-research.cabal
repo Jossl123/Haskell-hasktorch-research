@@ -23,6 +23,7 @@ library
   exposed-modules:
       Functional
       ReadImage
+      RNN
       TextTreatement
       Utils
       Word2Vec
@@ -33,12 +34,45 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , cassava
     , containers
     , csv
     , directory
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matplotlib
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+    , split
+    , stringsearch
+    , text
+    , time
+    , utf8-string
+  default-language: Haskell2010
+
+executable amazon
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/amazon
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , containers
+    , csv
+    , directory
+    , haskell-hasktorch-research
     , hasktorch
     , hasktorch-tools
     , hip
@@ -63,6 +97,7 @@ executable camera
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , cassava
@@ -95,6 +130,7 @@ executable cifar
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , cassava
@@ -126,6 +162,7 @@ executable linear
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , cassava
@@ -157,6 +194,7 @@ executable textProc
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , cassava
@@ -188,6 +226,39 @@ executable titanic
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , cassava
+    , containers
+    , csv
+    , directory
+    , haskell-hasktorch-research
+    , hasktorch
+    , hasktorch-tools
+    , hip
+    , matplotlib
+    , matrix
+    , nlp-tools
+    , random
+    , random-shuffle
+    , split
+    , stringsearch
+    , text
+    , time
+    , utf8-string
+  default-language: Haskell2010
+
+executable trading
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_hasktorch_research
+  hs-source-dirs:
+      app/trading
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , cassava
@@ -220,6 +291,7 @@ executable weather
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , cassava
@@ -251,6 +323,7 @@ executable xor
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       JuicyPixels
+    , aeson
     , base >=4.7 && <5
     , bytestring
     , cassava

@@ -29,7 +29,7 @@ import           ML.Exp.Chart                 (drawConfusionMatrix,
                                                drawLearningCurve)
 import           Torch.Autograd               (toDependent)
 import           Torch.Device                 (Device (..), DeviceType (..))
-import           Torch.Functional             (Dim (..),
+import           Torch.Functional             (Dim (..), embedding', stack,
                                                binaryCrossEntropyLoss', div,
                                                exp, mseLoss, softmax, sub, add, log, mul, min,
                                                squeezeAll, sumAll, transpose2D)
@@ -41,12 +41,12 @@ import           Torch.Layer.NonLinear        (ActName (..), decodeAct)
 import           Torch.NN                     (Parameterized, Randomizable,
                                                flattenParameters, sample)
 import           Torch.Optim                  (Adam (..), GD (..), foldLoop,
-                                               mkAdam, runStep)
+                                               mkAdam, runStep, grad')
 import           Torch.Tensor                 (Tensor (..), asTensor, asValue,
                                                select, shape, toInt)
 import           Torch.Tensor.TensorFactories (oneAtPos)
 import           Torch.TensorFactories        (zeros')
-import           Torch.Train                  (loadParams, saveParams, update)
+import           Torch.Train                  (loadParams, saveParams)
 
 import           Codec.Binary.UTF8.String     (encode)
 import qualified Data.ByteString.Lazy         as B
@@ -58,6 +58,7 @@ import           Data.Text.Lazy               as TL (pack, unpack)
 import           Data.Text.Lazy.Encoding      as TL (decodeUtf8, encodeUtf8)
 import           Data.Word                    (Word8)
 import           GHC.Generics
+
 
 import Word2Vec (EmbeddingHypParams (..), EmbeddingParams (..), embLayer, similarityCosine)
 import Utils (chronometer)
@@ -79,40 +80,52 @@ wordLstPath = "data/textProc/sample_wordlst.txt"
 main :: IO ()
 main = do
     let device = Device CPU 0
-        epochNb = 200
+        epochNb = 100
         wordDim = 16
-        wordNum = 10000
+        wordNum = 1000
         wordToReadInFile = 100000
         hypParams = EmbeddingHypParams device wordDim wordNum
     ----------------- DATA PREPROCESSING -----------------
     -- (wordlst, extractDuration) <- chronometer $ extractWordLst textFilePath wordToReadInFile wordNum
     -- putStrLn $ "Word list extraction duration: " ++ show extractDuration ++ "s"
     wordlst <- loadWordLst wordLstPath
+    let wordToOneHot = wordToOneHotFactory  (wordToIndexFactory wordlst) (wordToOneHotLookupFactory wordNum)
+        testWord = TL.encodeUtf8 $ TL.pack "phone"
+    -- print $ wordToOneHot testWord
+
     -- (_, duration) <- chronometer $ exportTrainingData
     --     "data/textProc/training_data.txt"
-    --     textFilePath
+    --     textFilePath 
     --     wordlst
     --     wordToReadInFile
     -- putStrLn $ "Data preprocessing duration: " ++ show duration ++ "s"
     -- ----------------- TRAINING -----------------
-    trainingData <- loadTrainingData "data/textProc/training_data.txt" wordlst 1000
-    putStrLn $ show (length trainingData) ++ " training datas were grabbed"
-    initModel <- sample hypParams
-    model <- trainModel initModel trainingData epochNb
+
+    (trainingData, loadingDuration) <- chronometer $ loadTrainingData "data/textProc/training_data.txt" wordToOneHot 100000
+    putStrLn $ show (length trainingData) ++ " training datas were grabbed in " ++ show loadingDuration ++ "s"
+    -- initModel <- loadParams hypParams modelPath
+    -- initModel <- sample hypParams
+    -- model <- trainModel initModel trainingData epochNb 40000
     -- -- ----------------- TESTING -----------------
-    -- model <- loadParams hypParams modelPath
+    -- model <- loadParams hypParams "data/textProc/1000w_100000trainset/sample_embedding.params"
     -- let word2vec = zip wordlst $ (asValue (toDependent $ weight $ w2 model) :: [[Float]])
     -- let word2vecDict = M.fromList word2vec
-    -- let wordVec1 = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "computer") word2vecDict
-    -- let wordVec2 = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "install") word2vecDict
-    -- -- let wordVec3 = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "computer") word2vecDict
-    -- let subVec = Torch.Functional.add wordVec1 wordVec2
+    -- let wordVec1 = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "phone") word2vecDict
+    -- let wordVec2 = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "small") word2vecDict
+    -- let wordVec3 = asTensor $ fromJust $ M.lookup (TL.encodeUtf8 $ TL.pack "big") word2vecDict
+    -- let subVec = Torch.Functional.add wordVec3 (Torch.Functional.sub wordVec1 wordVec2)
     -- let res = asValue subVec :: [Float]
     -- print $ mostSimilar res word2vec
     -- print $ mostSimilarWord "software" word2vec word2vecDict
-    -- print $ mostSimilarWord "king" word2vec word2vecDict
+    -- print $ mostSimilarWord "android" word2vec word2vecDict
     -- print $ mostSimilarWord "week" word2vec word2vecDict
     -- print $ mostSimilarWord "man" word2vec word2vecDict
+    -- let lay = weight $ w1 model
+    -- print lay 
+    -- let !epochLoss = loss model (wordToOneHot (TL.encodeUtf8 $ TL.pack "phone") , wordToOneHot (TL.encodeUtf8 $ TL.pack "small"))
+    -- print epochLoss
+    -- (t, o) <- runStep model GD (asTensor epochLoss) 0.1
+    -- print lay 
     return ()
 
 exportTrainingData :: FilePath -> FilePath -> [B.ByteString] -> Int  -> IO [(B.ByteString, B.ByteString)]
@@ -137,7 +150,8 @@ exportTrainingData filePath trainingText wordlst wordToReadInFile  = do
     -- let trainingDataPack = concat $ map packOfFollowingWords filteredTrainingTextLines
     spacedTrainingData <- mapM (\(i, line) -> do
                        let result = map (\(bs1,bs2) -> bs1 `B.append` (B.pack $ encode " ") `B.append` bs2) line
-                       putStrLn $ "spacing line nb : " ++ (show (i + 1)) ++ "/" ++ (show $ length trainingDataPackList) ++ " - length : " ++ (show $ length result)
+                       when (i `mod` 100 == 0) $
+                           putStrLn $ "spacing line nb : " ++ (show (i + 1)) ++ "/" ++ (show $ length trainingDataPackList) ++ " - length : " ++ (show $ length result)
                        return result
                    ) (zip [0..] trainingDataPackList)
     -- print $ "spaced " ++ (show $ length spacedTrainingData)
@@ -148,26 +162,21 @@ exportTrainingData filePath trainingText wordlst wordToReadInFile  = do
     putStrLn "training data saved"
     return $ concat trainingDataPackList
 
-loadTrainingData :: FilePath -> [B.ByteString] -> Int -> IO [(Tensor, Tensor)]
-loadTrainingData trainingDataPath wordlst maxTrainingDataSize = do
+loadTrainingData :: FilePath -> (B.ByteString -> Tensor) -> Int -> IO [(Tensor, Tensor)]
+loadTrainingData trainingDataPath wordToOneHot maxTrainingDataSize = do
     trainingDataWords <- B.readFile trainingDataPath
     rng <- newStdGen 
     let fileTextLines = take maxTrainingDataSize $ B.split (head $ encode "\n") trainingDataWords
     trainingData <- mapM (\(i,x) -> do
         let words = B.split (head $ encode " ") x
-        let word1 = head words
-        let word2 = head $ tail words
-        let word1Index = wordToIndexFactory wordlst word1
-        let word2Index = wordToIndexFactory wordlst word2
-        let !word1OneHot = oneAtPos word1Index (length wordlst)
-        let !word2OneHot = oneAtPos word2Index (length wordlst)
-        putStrLn $ "loading training data " ++ (show i) ++ "/" ++ (show $ length fileTextLines) 
+            word1 = head words
+            word2 = head $ tail words
+            !word1OneHot = wordToOneHot word1
+            !word2OneHot = wordToOneHot word2
+        when (i `mod` 100 == 0) $
+            putStrLn $ "loading training data " ++ (show $ 100 * (fromIntegral i) / (fromIntegral $ length fileTextLines)) ++ "%"
         return (word1OneHot, word2OneHot)
         ) (zip [0..] fileTextLines)
-    -- let trainingDataw =
-    --         map (\x -> (head x, head $ tail x)) $
-    --         map (\bs -> B.split (head $ encode " ") bs) fileTextLines 
-    -- trainingData <- getTrainingData wordlst trainingDataw maxTrainingDataSize
     return trainingData
 
 
@@ -194,25 +203,34 @@ mostSimilar wordVec word2vec =
         reverse $
         sortBySnd $ map (\(w, vec) -> (w, similarityCosine wordVec vec)) word2vec
 
-trainModel :: EmbeddingParams -> [(Tensor, Tensor)] -> Int -> IO EmbeddingParams
-trainModel model trainingData epochNb = do
+trainModel :: EmbeddingParams -> [(Tensor, Tensor)] -> Int -> Int -> IO EmbeddingParams
+trainModel model trainingData epochNb batchSize = do
     putStrLn "Training model..."
     let optimizer = mkAdam 0 0.9 0.999 (flattenParameters model)
-    (trainedModel, _, losses) <-
-        foldLoop (model, optimizer, []) epochNb $ \(model, opt, losses) i -> do
-            let epochLoss = sum (map (loss model) trainingData)
+    (trainedModel, _, losses, _) <-
+        foldLoop (model, optimizer, [], trainingData) epochNb $ \(model, opt, losses, datas) i -> do
+            let epochLoss = sum (map (loss model) (take batchSize datas))
             let lossValue = asValue epochLoss :: Float
             putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue
             (trainedModel, nOpt) <- runStep model opt epochLoss 0.1
-            pure (trainedModel, nOpt, losses ++ [lossValue]) -- pure : transform return type to IO because foldLoop need it
+            pure (trainedModel, nOpt, losses ++ [lossValue], drop batchSize datas ++ take batchSize datas) -- pure : transform return type to IO because foldLoop need it
     saveParams trainedModel modelPath
     return trainedModel
 
-wordToOneHot :: B.ByteString -> [B.ByteString] -> Tensor
-wordToOneHot word wordlst = oneAtPos index (length wordlst)
+wordToOneHotLookupFactory :: Int -> Tensor
+wordToOneHotLookupFactory wordNum = stack (Dim 0) $ map (\i -> oneAtPos i wordNum) [0..(wordNum - 1)]
+
+-- 100000 in [125, 123] sec
+wordToOneHotFactory ::  (B.ByteString -> Int) -> Tensor -> (B.ByteString -> Tensor)
+wordToOneHotFactory wordToIndex wordToOneHotLookup word = embedding' wordToOneHotLookup (asTensor [[wordToIndex word :: Int]])
+
+-- 100000 in [128, 129] sec
+wordToOneHot' :: [B.ByteString] -> B.ByteString -> Tensor
+wordToOneHot' wordlst word = oneAtPos index (length wordlst)
     where
         wordToIndex = wordToIndexFactory wordlst
         index       = wordToIndex word
+
 
 preprocess :: B.ByteString -> [[B.ByteString]]
 preprocess texts = map (map (\s -> toByteString $ map toLower $ toString s)) words
@@ -241,12 +259,6 @@ packOfFollowingWords (x:xs) =
         p1 = x
         p2 = head xs
         p3 = head $ tail xs
-
--- Convert data into training data
-getTrainingData :: [B.ByteString] -> [(B.ByteString, B.ByteString)] -> Int -> IO [(Tensor, Tensor)]
-getTrainingData wordlst dataPack maxTrainingDataSize = do
-    let res = map (\(x, y) -> (wordToOneHot x wordlst, wordToOneHot y wordlst)) dataPack
-    return $ take maxTrainingDataSize res
 
 loadWordLst :: FilePath -> IO [B.ByteString]
 loadWordLst wordLstPath = do
