@@ -83,7 +83,7 @@ data Model =
 instance Randomizable ModelSpec Model where
     sample ModelSpec {..} = do
         emb_sampled <- sample EmbeddingHypParams {dev = Device CPU 0, wordDim = wordDim, wordNum = wordNum}
-        rnn_sampled <- sample $ RnnHypParams {dev = Device CPU 0, bidirectional = False, inputSize = wordDim, hiddenSize = 1, numLayers = 3, hasBias = True}
+        rnn_sampled <- sample $ RnnHypParams {dev = Device CPU 0, bidirectional = False, inputSize = wordDim, hiddenSize = wordDim, outputSize = 15, numLayers = wordDim, hasBias = True}
         return Model {emb = emb_sampled, rnn = rnn_sampled}
             
 
@@ -116,8 +116,8 @@ decodeToAmazonReview jsonl =
 amazonReviewToTrainingData :: [AmazonReview] -> (B.ByteString -> Tensor) -> [(Tensor, Tensor)]
 amazonReviewToTrainingData reviews word2vec = map (\review -> (input review, output review)) reviews
     where
-        input review = ones' [3, 16]
-        output review =  ones' [1, 1]
+        input review = ones' [16, 16]
+        output review =  ones' [16, 15]
 
 main :: IO ()
 main = do
@@ -139,21 +139,20 @@ main = do
 
     let trainingData = amazonReviewToTrainingData reviews (word2vecFactory initModel wordToIndex)
     -- print reviews
-    trainedModel <- trainModel initModel trainingData 10 10
+    trainedModel <- trainModel (rnn initModel) trainingData 10 10
 
     -- print trainedModel
     return ()
 
 
-loss :: Model -> (Tensor, Tensor) -> Tensor
+loss :: RnnParams -> (Tensor, Tensor) -> Tensor
 loss model (input, target) = sumAll $ mseLoss output target
     where
-        rnnModel = rnn model
-        hSize = 1
-        h0 = zeros' [1, hSize]
-        (output, _) = rnnLayers rnnModel Tanh (Just 0.8) input h0
+        hSize = 16
+        h0 = zeros' [16, hSize]
+        (output, _) = rnnLayers model Tanh (Just 0.8) input h0
 
-trainModel :: Model -> [(Tensor, Tensor)] -> Int -> Int -> IO Model
+trainModel :: RnnParams -> [(Tensor, Tensor)] -> Int -> Int -> IO RnnParams
 trainModel model trainingData epochNb batchSize = do
     putStrLn "Training model..."
     let optimizer = mkAdam 0 0.9 0.999 (flattenParameters model)
