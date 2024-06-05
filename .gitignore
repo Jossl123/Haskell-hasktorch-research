@@ -33,3 +33,4 @@ app/cifar/models/*
 data/amazon
 data/titanic
 data/trading
+app/trading/models/*
