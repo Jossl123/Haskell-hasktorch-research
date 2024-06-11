@@ -21,7 +21,7 @@ import           Torch.NN                 (Parameter, Parameterized (..),
 import           Torch.Serialize          (loadParams)
 import           Torch.TensorFactories    (randnIO', zeros', ones')    
 import           Torch.Device
-import           Torch.Functional         (Dim (..), mseLoss, sumAll, embedding', stack, mul )
+import           Torch.Functional         (Dim (..), mseLoss, sumAll, embedding', stack, mul)
 import           Torch.Tensor             (Tensor, asTensor, asValue, reshape, shape)
 import           Torch.Train              (saveParams)
 import           Torch.Layer.Linear       (LinearHypParams (..), LinearParams (..), linearLayer)
@@ -33,6 +33,7 @@ import           Torch.Optim                   (Adam (..), GD (..), foldLoop,
                                                mkAdam, runStep)
             
 import           Torch.Layer.RNN           (RnnHypParams(..), RnnParams(..), rnnLayers)
+import           Torch.Tensor.Util         (unstack)
 
 import           Control.Monad        (when)
 import Data.Text.Lazy             as TL  (Text, pack)
@@ -78,14 +79,22 @@ data ModelSpec =
         { wordNum :: Int, -- the number of words
           wordDim :: Int, -- the dimention of word embeddings
           hiddenDim :: Int,
-          numLayers :: Int    
+          outputDim :: Int,
+          numLayers :: Int
         }
     deriving (Show, Eq, Generic)
+
+data ModelSub = 
+    ModelSub
+        { rnn :: RnnParams,
+          outputLayers :: LinearParams
+        }
+    deriving (Show, Generic, Parameterized)
 
 data Model =
     Model
         { emb :: EmbeddingParams,
-          rnn :: RnnParams
+          modelSub :: ModelSub
         }
     deriving (Show, Generic, Parameterized)
 
@@ -93,7 +102,8 @@ instance Randomizable ModelSpec Model where
     sample ModelSpec {..} = do
         emb_sampled <- sample EmbeddingHypParams {dev = Device CPU 0, wordDim = wordDim, wordNum = wordNum}
         rnn_sampled <- sample $ RnnHypParams {dev = Device CPU 0, bidirectional = False, inputSize = wordDim, hiddenSize = hiddenDim, numLayers = numLayers, hasBias = True}
-        return Model {emb = emb_sampled, rnn = rnn_sampled}
+        output_sampled <- sample $ LinearHypParams {dev = Device CPU 0, inputDim = hiddenDim, outputDim = outputDim, hasBias = True}
+        return Model {emb = emb_sampled, modelSub = ModelSub {rnn = rnn_sampled, outputLayers = output_sampled}}
             
 
 -- randomize and initialize embedding with loaded params
@@ -101,8 +111,7 @@ initialize :: ModelSpec -> FilePath -> IO Model
 initialize modelSpec embPath = do
     randomizedModel <- sample modelSpec
     loadedEmb <- loadParams (emb randomizedModel) embPath
-    return Model {emb = loadedEmb, rnn = rnn randomizedModel}
-
+    return Model {emb = loadedEmb, modelSub = modelSub randomizedModel}
 
 
 asFloat :: Tensor -> Float
@@ -131,7 +140,7 @@ decodeToAmazonReview jsonl =
 amazonReviewToTrainingData :: [AmazonReview] -> [B.ByteString] -> (B.ByteString -> Tensor) -> [(Tensor, Tensor)]
 amazonReviewToTrainingData reviews wordLst word2vec = map (\review -> (input review, output review)) reviews
     where
-        seqLength = 15
+        seqLength = 20
         input review = stack (Dim 0) $ addPadding $ sentenceEmbedded review
         sentenceEmbedded review = map word2vec $ processedSentence review
         output review = asTensor $ replicate seqLength [rating review]
@@ -154,27 +163,27 @@ main = do
             Right reviews -> reviews
     
     -- load params (set　wordDim　and wordNum same as session5)
-    let modelSpec = ModelSpec {wordDim = 16, wordNum = 1000, hiddenDim = 1, numLayers = 2}
+    let modelSpec = ModelSpec {wordDim = 16, wordNum = 1000, hiddenDim = 128, numLayers = 4, outputDim = 1}
     initModel <- initialize modelSpec embeddingPath
 
-    let trainingData = amazonReviewToTrainingData (take 2000 reviews) wordLst (word2vecFactory initModel wordToIndex)
+    let trainingData = amazonReviewToTrainingData (take 4000 reviews) wordLst (word2vecFactory initModel wordToIndex)
     -- print reviews
     -- print $ head trainingData
-    trainedModel <- trainModel (rnn initModel) trainingData 1000 10000
+    -- trainedModel <- trainModel (modelSub initModel) trainingData 1000 1000
 
-    -- load model 
-    let modelPath = "app/amazon/models/amazon_20_18%_524loss.model"
-    model <- loadParams (rnn initModel) modelPath
+    -- -- load model 
+    let modelPath = "app/amazon/models/amazon_110_16%_142loss.model"
+    model <- loadParams (modelSub initModel) modelPath
 
-    -- test model
-    let input = (fst $ head $ tail $ tail trainingData)
-        input2 = (fst $ head $ tail $ tail $ tail $ tail $tail trainingData)
-    print input
-    print input2
-    print $  forward model input 
-    print $  forward model input2 
-    print $ snd $ head $ tail $ tail trainingData
-    print $ snd $ head $ tail $ tail $ tail $tail $ tail trainingData
+    -- -- test model
+    -- let input = (fst $ head $ tail $ tail trainingData)
+    --     input2 = (fst $ head $ tail $ tail $ tail $ tail $tail trainingData)
+    -- print input
+    -- print input2
+    -- print $  forward model input 
+    -- print $  forward model input2 
+    -- print $ snd $ head $ tail $ tail trainingData
+    -- print $ snd $ head $ tail $ tail $ tail $tail $ tail trainingData
 
     let testData = take 10 trainingData
         outputs = map (\x -> last $ asValue (forward model $ fst x) :: [Float]) testData
@@ -186,13 +195,14 @@ main = do
     return ()
 
 
-loss :: RnnParams -> (Tensor, Tensor) -> Tensor
+loss :: ModelSub -> (Tensor, Tensor) -> Tensor
 loss model (input, target) = sumAll $ mseLoss ((forward model input) `mul` (asTensor ([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1] :: [Float]))) (target `mul` (asTensor ([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1] :: [Float])))
 
-forward :: RnnParams -> Tensor -> Tensor
-forward model input = fst $ rnnLayers model Relu (Just 0.8) (ones' [2, 1]) input
+forward :: ModelSub -> Tensor -> Tensor
+forward model input = stack (Dim 0) $ map (linearLayer (outputLayers model)) (unstack rnnOutputs) 
+    where rnnOutputs = fst $ rnnLayers (rnn model) Relu (Just 0.8) (ones' [4, 128]) input
 
-trainModel :: RnnParams -> [(Tensor, Tensor)] -> Int -> Int -> IO RnnParams
+trainModel :: ModelSub -> [(Tensor, Tensor)] -> Int -> Int -> IO ModelSub
 trainModel model trainingData epochNb batchSize = do
     putStrLn "Training model..."
     print $ length trainingData
@@ -204,7 +214,7 @@ trainModel model trainingData epochNb batchSize = do
             let epochLoss = sum (map (loss model) (take batchSize datas))
             let lossValue = asValue epochLoss :: Float
             putStrLn $ "Loss epoch " ++ show i ++ " : " ++ show lossValue
-            (trainedModel, nOpt) <- runStep model opt epochLoss 0.01
+            (trainedModel, nOpt) <- runStep model opt epochLoss 0.0001
             when (i `mod` 10 == 0) $ do
                 putStrLn "Saving..."
 
