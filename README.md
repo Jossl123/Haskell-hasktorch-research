@@ -1,1 +1,2 @@
-Run ./setup.sh to install the hasktorch necesarry packages
+### Haskell Machine Learning Projects done with Hasktorch and Hasktorch-tools
+
